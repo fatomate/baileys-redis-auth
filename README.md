@@ -15,9 +15,9 @@ A **Redis-based authentication state manager** for the [Baileys](https://github.
 ## Installation
 
 ```bash
-npm install @baileys/redis-auth-state
+npm install https://github.com/fatomate/baileys-redis-auth.git
 # or
-yarn add @baileys/redis-auth-state
+yarn add https://github.com/fatomate/baileys-redis-auth.git
 ```
 
 ## Prerequisites
