@@ -1,0 +1,45 @@
+{
+  "name": "@baileys/redis-auth-state",
+  "version": "1.0.0",
+  "description": "High-performance Redis-based authentication state manager for Baileys WhatsApp library",
+  "keywords": [
+    "baileys",
+    "whatsapp",
+    "redis",
+    "authentication",
+    "session",
+    "performance",
+    "high-speed"
+  ],
+  "homepage": "https://github.com/your-username/baileys-redis-auth",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/baileys-redis-auth.git"
+  },
+  "license": "MIT",
+  "author": "Your Name",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepare": "npm run build",
+    "test": "echo \"Tests not implemented yet\" && exit 0"
+  },
+  "dependencies": {
+    "redis": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "baileys": ">=6.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+} 
