@@ -50,18 +50,18 @@ const detectRedisClient = (redis: any): { type: 'redis' | 'ioredis' | 'unknown';
 const createRedisClient = async (redisOptions: any): Promise<any> => {
   try {
     // Try ioredis first
-    const Redis = require('ioredis')
+    const Redis = eval('require')('ioredis')
     const client = new Redis(redisOptions)
     return client
-  } catch (error) {
+  } catch (error: any) {
     // Fallback to redis
     try {
-      const { createClient } = require('redis')
+      const { createClient } = eval('require')('redis')
       const client = createClient(redisOptions)
       await client.connect()
       return client
-    } catch (redisError) {
-      throw new Error(`Failed to create Redis client. Install either 'redis' or 'ioredis': ${error.message}`)
+    } catch (redisError: any) {
+      throw new Error(`Failed to create Redis client. Install either 'redis' or 'ioredis': ${error?.message || 'Unknown error'}`)
     }
   }
 }
@@ -259,7 +259,13 @@ const fastSerialize = (data: any): string => {
 const fastDeserialize = (data: string): any => {
   return JSON.parse(data, (key, value) => {
     if (typeof value === 'object' && value !== null && value.type === 'Buffer') {
-      return typeof Buffer !== 'undefined' ? Buffer.from(value.data) : new Uint8Array(value.data)
+      // Check if Buffer exists and create buffer safely
+      try {
+        const BufferGlobal = eval('typeof Buffer !== "undefined" ? Buffer : null')
+        return BufferGlobal ? BufferGlobal.from(value.data) : new Uint8Array(value.data)
+      } catch {
+        return new Uint8Array(value.data)
+      }
     }
     return value
   })
@@ -291,8 +297,7 @@ const setWithExpiration = async (redis: any, key: string, value: string, ttl: nu
       }
     } else {
       // Unknown client, try basic set with EX
-      await redis.set(key, value)
-      console.warn(`Failed to set TTL for key ${key}, falling back to basic set`)
+      await redis.set(key, value, 'EX', ttl)
     }
   } catch (error) {
     // If all methods fail, try the basic set command
@@ -313,7 +318,6 @@ export const useRedisAuthState = async (
     keyPrefix = 'baileys:session:',
     sessionId = 'default',
     ttl,
-    compression = 'lz4',
     enableBatching = true,
     batchSize = 100,
     poolSize = 10,
@@ -500,14 +504,14 @@ export const useRedisAuthState = async (
     // Try to use Baileys initAuthCreds if available
     if (Object.keys(creds).length === 0) {
       try {
-        const { initAuthCreds } = require('baileys')
+        const { initAuthCreds } = eval('require')('baileys')
         creds = initAuthCreds()
-      } catch (error) {
+      } catch (error: any) {
         // Baileys not available, use empty object
         creds = {}
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error loading credentials:', error)
     creds = {}
   }
@@ -529,9 +533,9 @@ export const useRedisAuthState = async (
               // Special handling for app-state-sync-key
               if (type === 'app-state-sync-key' && value) {
                 try {
-                  const { proto } = require('baileys/WAProto')
+                  const { proto } = eval('require')('baileys/WAProto')
                   value = proto.Message.AppStateSyncKeyData.fromObject(value)
-                } catch (error) {
+                } catch (error: any) {
                   // Baileys not available, keep original value
                 }
               }
