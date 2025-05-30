@@ -7,6 +7,66 @@ const sessionCaches = new Map<string, Map<string, { data: any; timestamp: number
 const sessionPools = new Map<string, RedisConnectionPool>()
 
 /**
+ * Detect Redis client type and capabilities
+ */
+const detectRedisClient = (redis: any): { type: 'redis' | 'ioredis' | 'unknown'; capabilities: any } => {
+  // Check for ioredis
+  if (redis.constructor?.name === 'Redis' || redis.constructor?.name === 'Cluster') {
+    return {
+      type: 'ioredis',
+      capabilities: {
+        setEx: 'setex', // ioredis uses lowercase
+        needsConnect: false, // ioredis auto-connects
+        hasMulti: true
+      }
+    }
+  }
+  
+  // Check for node-redis v4+
+  if (typeof redis.connect === 'function' || typeof redis.get === 'function') {
+    return {
+      type: 'redis',
+      capabilities: {
+        setEx: redis.setEx ? 'setEx' : (redis.setex ? 'setex' : 'set'),
+        needsConnect: typeof redis.connect === 'function',
+        hasMulti: true
+      }
+    }
+  }
+  
+  return {
+    type: 'unknown',
+    capabilities: {
+      setEx: 'set',
+      needsConnect: false,
+      hasMulti: false
+    }
+  }
+}
+
+/**
+ * Create Redis client based on options and type
+ */
+const createRedisClient = async (redisOptions: any): Promise<any> => {
+  try {
+    // Try ioredis first
+    const Redis = require('ioredis')
+    const client = new Redis(redisOptions)
+    return client
+  } catch (error) {
+    // Fallback to redis
+    try {
+      const { createClient } = require('redis')
+      const client = createClient(redisOptions)
+      await client.connect()
+      return client
+    } catch (redisError) {
+      throw new Error(`Failed to create Redis client. Install either 'redis' or 'ioredis': ${error.message}`)
+    }
+  }
+}
+
+/**
  * Get or create a memory cache for a specific session
  */
 const getSessionCache = (sessionId: string): Map<string, { data: any; timestamp: number }> => {
@@ -58,7 +118,7 @@ const batchQueue = new Map<string, Array<{ type: 'get' | 'set' | 'del'; key: str
 const batchTimers = new Map<string, any>()
 
 /**
- * High-performance Redis connection pool
+ * High-performance Redis connection pool with multi-client support
  */
 class RedisConnectionPool {
   private connections: any[] = []
@@ -73,11 +133,8 @@ class RedisConnectionPool {
   }
 
   async initialize(): Promise<void> {
-    const { createClient } = require('redis')
-    
     for (let i = 0; i < this.poolSize; i++) {
-      const client = createClient(this.redisOptions)
-      await client.connect()
+      const client = await createRedisClient(this.redisOptions)
       this.connections.push(client)
       this.availableConnections.push(client)
     }
@@ -91,9 +148,7 @@ class RedisConnectionPool {
     }
     
     // If no available connections, create a temporary one
-    const { createClient } = require('redis')
-    const client = createClient(this.redisOptions)
-    await client.connect()
+    const client = await createRedisClient(this.redisOptions)
     return client
   }
 
@@ -106,7 +161,15 @@ class RedisConnectionPool {
 
   async destroy(): Promise<void> {
     for (const conn of this.connections) {
-      await conn.quit()
+      try {
+        if (typeof conn.quit === 'function') {
+          await conn.quit()
+        } else if (typeof conn.disconnect === 'function') {
+          await conn.disconnect()
+        }
+      } catch (error) {
+        // Ignore connection cleanup errors
+      }
     }
     this.connections = []
     this.availableConnections = []
@@ -203,6 +266,42 @@ const fastDeserialize = (data: string): any => {
 }
 
 /**
+ * Safely set Redis key with expiration, supporting both redis and ioredis
+ */
+const setWithExpiration = async (redis: any, key: string, value: string, ttl: number): Promise<void> => {
+  const clientInfo = detectRedisClient(redis)
+  
+  try {
+    if (clientInfo.type === 'ioredis') {
+      // ioredis uses setex (lowercase)
+      await redis.setex(key, ttl, value)
+    } else if (clientInfo.type === 'redis') {
+      // Try different method names for Redis client compatibility
+      if (typeof redis.setEx === 'function') {
+        await redis.setEx(key, ttl, value)
+      } else if (typeof redis.setex === 'function') {
+        await redis.setex(key, ttl, value)
+      } else if (typeof redis.setEX === 'function') {
+        await redis.setEX(key, ttl, value)
+      } else if (typeof redis.set === 'function') {
+        // Fallback to set with EX option
+        await redis.set(key, value, 'EX', ttl)
+      } else {
+        throw new Error('Redis client does not support setting expiration')
+      }
+    } else {
+      // Unknown client, try basic set with EX
+      await redis.set(key, value)
+      console.warn(`Failed to set TTL for key ${key}, falling back to basic set`)
+    }
+  } catch (error) {
+    // If all methods fail, try the basic set command
+    await redis.set(key, value)
+    console.warn(`Failed to set TTL for key ${key}, falling back to basic set`)
+  }
+}
+
+/**
  * High-performance Redis-based authentication state storage for Baileys.
  * Optimized for maximum speed and minimal latency.
  */
@@ -230,10 +329,11 @@ export const useRedisAuthState = async (
   let redis: any
   let pool: RedisConnectionPool | null = null
   
-  if (redisOptions && typeof redisOptions.connect === 'function') {
+  if (redisOptions && (typeof redisOptions.connect === 'function' || redisOptions.constructor?.name === 'Redis' || redisOptions.constructor?.name === 'Cluster')) {
+    // Existing Redis client passed
     redis = redisOptions
   } else {
-    // Use session-specific connection pool
+    // Create new client using session-specific connection pool
     pool = await getSessionPool(sessionId, redisOptions, poolSize)
     redis = await pool.getConnection()
   }
@@ -300,7 +400,7 @@ export const useRedisAuthState = async (
     
     try {
       if (ttl && ttl > 0) {
-        await redis.setEx(redisKey, ttl, serializedData)
+        await setWithExpiration(redis, redisKey, serializedData, ttl)
       } else {
         await redis.set(redisKey, serializedData)
       }
@@ -356,6 +456,7 @@ export const useRedisAuthState = async (
 
   // High-performance bulk write operation
   const bulkWrite = async (data: { [key: string]: any }): Promise<void> => {
+    const clientInfo = detectRedisClient(redis)
     const pipeline = redis.multi()
     
     for (const [key, value] of Object.entries(data)) {
@@ -363,7 +464,21 @@ export const useRedisAuthState = async (
       if (value !== null && value !== undefined) {
         const serializedData = fastSerialize(value)
         if (ttl && ttl > 0) {
-          pipeline.setEx(redisKey, ttl, serializedData)
+          // Use client-specific method for setting expiration in pipeline
+          if (clientInfo.type === 'ioredis') {
+            pipeline.setex(redisKey, ttl, serializedData)
+          } else if (clientInfo.type === 'redis') {
+            if (typeof redis.setEx === 'function') {
+              pipeline.setEx(redisKey, ttl, serializedData)
+            } else if (typeof redis.setex === 'function') {
+              pipeline.setex(redisKey, ttl, serializedData)
+            } else {
+              // Fallback to set with EX option
+              pipeline.set(redisKey, serializedData, 'EX', ttl)
+            }
+          } else {
+            pipeline.set(redisKey, serializedData, 'EX', ttl)
+          }
         } else {
           pipeline.set(redisKey, serializedData)
         }

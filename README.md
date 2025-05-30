@@ -1,28 +1,16 @@
-# Baileys Redis Auth State (High-Performance Edition)
+# Baileys Redis Auth State
 
-A **high-performance** Redis-based authentication state manager for the [Baileys](https://github.com/WhiskeySockets/Baileys) WhatsApp library. This package provides a drop-in replacement for `useMultiFileAuthState` that stores session data in Redis with **maximum speed optimization**, making it ideal for production deployments and multi-instance setups.
+A **Redis-based authentication state manager** for the [Baileys](https://github.com/WhiskeySockets/Baileys) WhatsApp library. This package provides a drop-in replacement for `useMultiFileAuthState` that stores session data in Redis, making it ideal for production deployments and multi-instance setups.
 
-## ⚡ Performance Features
+## ✨ Features
 
-- **🚀 10x Faster** than standard implementations
-- **📦 Batch Operations** - Multiple Redis operations in single requests
-- **🔄 Connection Pooling** - Eliminates connection overhead
-- **💾 Memory Caching** - Sub-millisecond data access
-- **🗜️ Smart Compression** - LZ4/Gzip compression for reduced bandwidth
-- **🔒 Mutex-Free** - No blocking operations for maximum concurrency
-- **⚡ Pipeline Optimization** - Redis pipeline for bulk operations
-- **🧠 Memory Efficient** - Buffer pooling and garbage collection optimization
-
-## 🏆 Performance Benchmarks
-
-| Operation | Standard | High-Performance | Improvement |
-|-----------|----------|------------------|-------------|
-| Single Read | 15ms | 1.2ms | **12.5x faster** |
-| Bulk Read (100 keys) | 450ms | 25ms | **18x faster** |
-| Single Write | 20ms | 1.8ms | **11x faster** |
-| Bulk Write (100 keys) | 600ms | 35ms | **17x faster** |
-| Session Load | 200ms | 15ms | **13x faster** |
-| Memory Usage | 45MB | 12MB | **73% reduction** |
+- **🔄 Redis Storage** - Store session data in Redis for persistence and scalability
+- **📦 Batch Operations** - Optimized bulk read/write operations
+- **🔄 Connection Pooling** - Efficient Redis connection management
+- **💾 Memory Caching** - In-memory cache for frequently accessed data
+- **🗜️ Data Serialization** - Efficient JSON serialization with Buffer support
+- **🔒 Session Isolation** - Separate cache and connection pools per session
+- **⚡ Performance Optimized** - Designed for high-throughput applications
 
 ## Installation
 
@@ -34,16 +22,19 @@ yarn add @baileys/redis-auth-state
 
 ## Prerequisites
 
-You need Redis 4.0+ for optimal performance:
+You need Redis 4.0+ running:
 
 ```bash
-# Redis with optimized config for high performance
-redis-server --maxmemory-policy allkeys-lru --maxmemory 1gb --save ""
+# Start Redis server
+redis-server
+
+# Or with Docker
+docker run -d -p 6379:6379 redis:latest
 ```
 
-## 🚀 High-Performance Usage
+## 🚀 Quick Start
 
-### Optimized Configuration
+### Basic Usage
 
 ```typescript
 import makeWASocket from 'baileys'
@@ -54,30 +45,8 @@ async function connectToWhatsApp() {
     redis: {
       host: 'localhost',
       port: 6379,
-      // High-performance Redis options
-      socket: {
-        connectTimeout: 5000,
-        commandTimeout: 3000,
-        lazyConnect: false,
-        keepAlive: true,
-        family: 4 // IPv4 for better performance
-      },
-      // Connection pooling for high concurrency
-      poolSize: 10,
-      retryDelayOnFailover: 100,
-      maxRetriesPerRequest: 3,
-      lazyConnect: false
     },
-    sessionId: 'high-speed-session',
-    
-    // Performance optimizations
-    compression: 'lz4',        // Fast compression
-    enableBatching: true,      // Batch operations
-    batchSize: 100,           // Optimal batch size
-    enableCache: true,        // Memory cache
-    cacheTTL: 30000,         // 30s cache
-    memoryEfficient: true,    // GC optimization
-    poolSize: 10             // Connection pool
+    sessionId: 'my-session-1'
   })
 
   const sock = makeWASocket({
@@ -90,209 +59,276 @@ async function connectToWhatsApp() {
 }
 ```
 
-### Maximum Performance Setup
+### Advanced Configuration
 
 ```typescript
 import { createClient } from 'redis'
 import { useRedisAuthState } from '@baileys/redis-auth-state'
 
-async function maxPerformanceSetup() {
-  // Pre-configured high-performance Redis client
+async function advancedSetup() {
+  // Pre-configured Redis client
   const redisClient = createClient({
     url: 'redis://localhost:6379',
     socket: {
-      connectTimeout: 3000,
-      commandTimeout: 2000,
-      lazyConnect: false,
-      keepAlive: true,
-      noDelay: true
-    },
-    // Disable retries for maximum speed
-    retryDelayOnFailover: 50,
-    maxRetriesPerRequest: 1,
-    // Connection pool configuration
-    pool: {
-      min: 5,
-      max: 20,
-      acquireTimeoutMillis: 1000,
-      createTimeoutMillis: 2000,
-      destroyTimeoutMillis: 1000,
-      idleTimeoutMillis: 10000,
-      reapIntervalMillis: 1000,
-      createRetryIntervalMillis: 100
+      connectTimeout: 5000,
+      commandTimeout: 3000,
+      keepAlive: true
     }
   })
   
   await redisClient.connect()
 
   const { state, saveCreds } = await useRedisAuthState({
-    redis: redisClient,
-    sessionId: 'max-perf-session',
-    compression: 'lz4',
+    redis: redisClient, // Pass existing client
+    sessionId: 'advanced-session',
+    keyPrefix: 'myapp:whatsapp:',
+    ttl: 7 * 24 * 60 * 60, // 7 days
     enableBatching: true,
-    batchSize: 200,        // Larger batches for better throughput
+    batchSize: 100,
     enableCache: true,
-    cacheTTL: 60000,      // Longer cache for better hit rate
-    memoryEfficient: true,
-    poolSize: 20          // Large pool for high concurrency
+    cacheTTL: 30000, // 30 seconds
+    poolSize: 10
   })
 
   return { state, saveCreds }
 }
 ```
 
-## 📊 Performance Configuration Options
+## 📊 Configuration Options
 
-### RedisAuthStateOptions (Enhanced)
+### RedisAuthStateOptions
 
-| Option | Type | Default | Performance Impact |
-|--------|------|---------|-------------------|
-| `compression` | `'lz4' \| number \| false` | `'lz4'` | **High** - Reduces network I/O by 60-80% |
-| `enableBatching` | `boolean` | `true` | **Critical** - 10-20x improvement for bulk ops |
-| `batchSize` | `number` | `100` | **Medium** - Optimal: 50-200 |
-| `poolSize` | `number` | `10` | **High** - Eliminates connection overhead |
-| `enableCache` | `boolean` | `true` | **Critical** - Sub-ms access for hot data |
-| `cacheTTL` | `number` | `30000` | **Medium** - Balance hit rate vs memory |
-| `memoryEfficient` | `boolean` | `true` | **Medium** - Reduces GC pressure |
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `redis` | `RedisClientOptions \| RedisClient` | **Required** | Redis client config or existing client |
+| `sessionId` | `string` | `'default'` | Unique session identifier |
+| `keyPrefix` | `string` | `'baileys:session:'` | Redis key prefix |
+| `ttl` | `number` | `undefined` | Data expiration in seconds |
+| `enableBatching` | `boolean` | `true` | Enable bulk operations |
+| `batchSize` | `number` | `100` | Batch operation size |
+| `poolSize` | `number` | `10` | Connection pool size |
+| `enableCache` | `boolean` | `true` | Enable memory cache |
+| `cacheTTL` | `number` | `30000` | Cache TTL in milliseconds |
+| `memoryEfficient` | `boolean` | `true` | Memory optimization mode |
 
-### Compression Performance
+## 🔧 Redis Client Compatibility
 
-```typescript
-// Compression comparison (1MB auth data)
-const options = {
-  compression: false,     // 1000ms, 1MB
-  compression: 1,         // 150ms, 200KB (gzip level 1)
-  compression: 'lz4',     // 80ms, 300KB (LZ4 - fastest)
-  compression: 9          // 400ms, 150KB (gzip level 9)
-}
-```
+This library is compatible with **both** `redis` and `ioredis` clients and will automatically detect the client type:
 
-## 🔧 Advanced Performance Tuning
-
-### Redis Configuration
-
-```bash
-# /etc/redis/redis.conf - High-performance settings
-maxmemory 2gb
-maxmemory-policy allkeys-lru
-timeout 0
-tcp-keepalive 300
-tcp-backlog 511
-
-# Disable persistence for maximum speed (optional)
-save ""
-appendonly no
-
-# Network optimizations
-tcp-nodelay yes
-timeout 0
-
-# Memory optimizations
-hash-max-ziplist-entries 512
-hash-max-ziplist-value 64
-list-max-ziplist-entries 512
-list-max-ziplist-value 64
-```
-
-### Production Optimization
+### Using with `redis` (node-redis v4+)
 
 ```typescript
-// Production-ready high-performance setup
-const productionConfig = {
-  redis: {
-    url: process.env.REDIS_URL,
-    socket: {
-      connectTimeout: 3000,
-      commandTimeout: 2000,
-      keepAlive: true,
-      noDelay: true
-    },
-    retryDelayOnFailover: 50,
-    maxRetriesPerRequest: 2,
-    lazyConnect: false
-  },
-  sessionId: process.env.SESSION_ID,
-  compression: 'lz4',
-  enableBatching: true,
-  batchSize: parseInt(process.env.BATCH_SIZE || '150'),
-  enableCache: true,
-  cacheTTL: parseInt(process.env.CACHE_TTL || '45000'),
-  memoryEfficient: true,
-  poolSize: parseInt(process.env.POOL_SIZE || '15'),
-  ttl: 7 * 24 * 60 * 60 // 7 days
-}
-```
+import { createClient } from 'redis'
+import { useRedisAuthState } from '@baileys/redis-auth-state'
 
-## 🏃‍♂️ Performance Monitoring
-
-```typescript
-import { MemoryCache } from '@baileys/redis-auth-state'
-
-// Monitor cache performance
-const cache = MemoryCache.getInstance()
-
-setInterval(() => {
-  console.log('Cache stats:', {
-    size: cache.size,
-    hitRate: cache.getHitRate(),
-    memoryUsage: process.memoryUsage()
-  })
-}, 30000)
-```
-
-## 🆚 Performance Comparison
-
-### vs File-based Auth State
-- **Read Speed**: 25x faster
-- **Write Speed**: 20x faster
-- **Memory Usage**: 80% less
-- **Concurrent Sessions**: Unlimited vs 1
-
-### vs Standard Redis Implementation
-- **Batch Operations**: 18x faster bulk operations
-- **Memory Cache**: 95% reduction in Redis calls
-- **Connection Pooling**: 10x better concurrency
-- **Compression**: 70% bandwidth reduction
-
-## 🚨 Performance Best Practices
-
-1. **Use Connection Pooling**: Always set `poolSize` >= 10
-2. **Enable Batching**: Keep `enableBatching: true`
-3. **Optimize Batch Size**: Test with 50-200 based on your load
-4. **Use LZ4 Compression**: Best speed/ratio balance
-5. **Enable Memory Cache**: Reduces Redis calls by 90%+
-6. **Monitor Memory**: Use `memoryEfficient: true`
-7. **Redis Tuning**: Configure Redis for your use case
-
-## 🔍 Troubleshooting Performance
-
-### Slow Performance Checklist
-
-1. ✅ Redis on same network/machine
-2. ✅ Connection pooling enabled (`poolSize > 1`)
-3. ✅ Batching enabled (`enableBatching: true`)
-4. ✅ Memory cache enabled (`enableCache: true`)
-5. ✅ Compression enabled (`compression: 'lz4'`)
-6. ✅ Redis persistence disabled for speed
-7. ✅ Network latency < 5ms
-
-### Performance Debugging
-
-```typescript
-// Enable performance logging
+// Option 1: Pass connection options
 const { state, saveCreds } = await useRedisAuthState({
-  // ... your config
-  debug: true, // Logs operation timings
-  enableMetrics: true // Collects performance metrics
+  redis: {
+    host: 'localhost', 
+    port: 6379,
+    password: 'your-password'
+  },
+  sessionId: 'session-1'
+})
+
+// Option 2: Pass existing client
+const redisClient = createClient({
+  host: 'localhost',
+  port: 6379
+})
+await redisClient.connect()
+
+const { state, saveCreds } = await useRedisAuthState({
+  redis: redisClient,
+  sessionId: 'session-1'
 })
 ```
+
+### Using with `ioredis`
+
+```typescript
+import Redis from 'ioredis'
+import { useRedisAuthState } from '@baileys/redis-auth-state'
+
+// Option 1: Pass connection options (will auto-detect and use ioredis if available)
+const { state, saveCreds } = await useRedisAuthState({
+  redis: {
+    host: 'localhost',
+    port: 6379,
+    password: 'your-password'
+  },
+  sessionId: 'session-1'
+})
+
+// Option 2: Pass existing ioredis client
+const redisClient = new Redis({
+  host: 'localhost',
+  port: 6379,
+  password: 'your-password'
+})
+
+const { state, saveCreds } = await useRedisAuthState({
+  redis: redisClient,
+  sessionId: 'session-1'
+})
+
+// Option 3: Using Redis Cluster with ioredis
+const cluster = new Redis.Cluster([
+  { host: 'localhost', port: 7000 },
+  { host: 'localhost', port: 7001 }
+])
+
+const { state, saveCreds } = await useRedisAuthState({
+  redis: cluster,
+  sessionId: 'session-1'
+})
+```
+
+### Auto-Detection Priority
+
+The library will automatically detect and use Redis clients in this order:
+
+1. **ioredis** - If `ioredis` is installed, it will be preferred
+2. **redis** - Fallback to `redis` package if ioredis is not available
+3. **Error** - If neither is available, an error will be thrown
+
+### Installation
+
+```bash
+# For redis (node-redis)
+npm install redis
+
+# For ioredis  
+npm install ioredis
+
+# For both (library will auto-detect)
+npm install redis ioredis
+```
+
+## 🏗️ Multiple Sessions
+
+Easily manage multiple WhatsApp sessions:
+
+```typescript
+async function createMultipleSessions() {
+  const sessions = []
+  
+  for (let i = 1; i <= 5; i++) {
+    const { state, saveCreds } = await useRedisAuthState({
+      redis: { host: 'localhost', port: 6379 },
+      sessionId: `session-${i}`,
+      enableCache: true,
+      poolSize: 5 // Smaller pool per session
+    })
+    
+    const sock = makeWASocket({ auth: state })
+    sock.ev.on('creds.update', saveCreds)
+    
+    sessions.push(sock)
+  }
+  
+  return sessions
+}
+```
+
+## 🧹 Cleanup
+
+Clean up session resources when done:
+
+```typescript
+import { cleanupSession } from '@baileys/redis-auth-state'
+
+// Clean up specific session
+await cleanupSession('session-1')
+
+// Or cleanup in your app shutdown
+process.on('SIGTERM', async () => {
+  await cleanupSession('session-1')
+  process.exit(0)
+})
+```
+
+## 🔍 Error Handling
+
+The library includes robust error handling and fallback mechanisms:
+
+```typescript
+try {
+  const { state, saveCreds } = await useRedisAuthState({
+    redis: { host: 'localhost', port: 6379 },
+    sessionId: 'my-session'
+  })
+  
+  // ... your code
+} catch (error) {
+  console.error('Failed to initialize Redis auth state:', error)
+  // Fallback to file-based auth state
+  const { useMultiFileAuthState } = require('baileys')
+  const { state, saveCreds } = await useMultiFileAuthState('./auth_info')
+}
+```
+
+## 📈 Performance Tips
+
+1. **Use Connection Pooling**: Set `poolSize` >= 5 for concurrent operations
+2. **Enable Batching**: Keep `enableBatching: true` for bulk operations
+3. **Optimize Cache**: Adjust `cacheTTL` based on your access patterns
+4. **Redis Tuning**: Configure Redis memory policy for your use case
+5. **Session Isolation**: Use unique `sessionId` for each WhatsApp instance
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**Redis Connection Failed**
+```typescript
+// Ensure Redis is running and accessible
+const redis = createClient({ host: 'localhost', port: 6379 })
+redis.on('error', (err) => console.error('Redis error:', err))
+await redis.connect()
+```
+
+**Session Data Not Persisting**
+```typescript
+// Ensure you're calling saveCreds on updates
+sock.ev.on('creds.update', saveCreds)
+```
+
+**Memory Usage High**
+```typescript
+// Enable memory efficient mode
+const { state, saveCreds } = await useRedisAuthState({
+  // ... other options
+  memoryEfficient: true,
+  cacheTTL: 15000 // Shorter cache TTL
+})
+```
+
+## API Reference
+
+### useRedisAuthState(options)
+
+Returns a Promise that resolves to:
+- `state`: Auth state object for Baileys
+- `saveCreds`: Function to save credentials
+
+### cleanupSession(sessionId)
+
+Cleans up resources for a specific session:
+- Clears memory cache
+- Destroys connection pool
+- Releases connections
 
 ## License
 
 MIT License - see LICENSE file for details.
 
-## Support & Contributing
+## Contributing
 
-- 🐛 **Issues**: Report performance issues with benchmarks
-- 🚀 **Performance PRs**: Contributions focused on speed improvements welcome
-- 📈 **Benchmarks**: Share your performance results 
+1. Fork the repository
+2. Create your feature branch
+3. Make your changes
+4. Add tests if applicable  
+5. Submit a pull request
+
+Issues and feature requests are welcome! 
