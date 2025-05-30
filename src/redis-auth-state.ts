@@ -94,7 +94,11 @@ const getSessionPool = async (sessionId: string, redisOptions: any, poolSize: nu
 /**
  * Clean up session resources when no longer needed
  */
-export const cleanupSession = async (sessionId: string): Promise<void> => {
+export const cleanupSession = async (
+  sessionId: string, 
+  redisOptions?: any, 
+  keyPrefix: string = 'baileys:session:'
+): Promise<void> => {
   // Clean up memory cache
   sessionCaches.delete(sessionId)
   
@@ -103,6 +107,78 @@ export const cleanupSession = async (sessionId: string): Promise<void> => {
   if (pool) {
     await pool.destroy()
     sessionPools.delete(sessionId)
+  }
+
+  // Delete actual session data from Redis
+  if (redisOptions) {
+    let redis: any = null
+    let shouldCloseConnection = false
+    
+    try {
+      // Check if redisOptions is already a Redis client
+      if (redisOptions && (typeof redisOptions.connect === 'function' || redisOptions.constructor?.name === 'Redis' || redisOptions.constructor?.name === 'Cluster')) {
+        redis = redisOptions
+      } else {
+        // Create a temporary connection to delete the data
+        redis = await createRedisClient(redisOptions)
+        shouldCloseConnection = true
+      }
+
+      const sessionKey = `${keyPrefix}${sessionId}`
+      
+      // Find all keys for this session using SCAN for better performance
+      const keysToDelete: string[] = []
+      const pattern = `${sessionKey}:*`
+      
+      const clientInfo = detectRedisClient(redis)
+      
+      if (clientInfo.type === 'ioredis') {
+        // ioredis supports scan with match
+        const stream = redis.scanStream({
+          match: pattern,
+          count: 100
+        })
+        
+        for await (const keys of stream) {
+          keysToDelete.push(...keys)
+        }
+      } else {
+        // For node-redis, use SCAN manually
+        let cursor = 0
+        do {
+          const result = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100)
+          cursor = parseInt(result[0])
+          keysToDelete.push(...result[1])
+        } while (cursor !== 0)
+      }
+      
+      // Delete all found keys in batches
+      if (keysToDelete.length > 0) {
+        const pipeline = redis.multi()
+        keysToDelete.forEach(key => pipeline.del(key))
+        await pipeline.exec()
+        
+        console.log(`Deleted ${keysToDelete.length} Redis keys for session: ${sessionId}`)
+      } else {
+        console.log(`No Redis keys found for session: ${sessionId}`)
+      }
+      
+    } catch (error) {
+      console.error(`Error cleaning up Redis data for session ${sessionId}:`, error)
+    } finally {
+      // Close temporary connection if we created one
+      if (redis && shouldCloseConnection) {
+        try {
+          if (typeof redis.quit === 'function') {
+            await redis.quit()
+          } else if (typeof redis.disconnect === 'function') {
+            await redis.disconnect()
+          }
+        } catch (error) {
+          // Ignore connection cleanup errors
+        }
+      }
+    }
   }
 }
 
@@ -567,4 +643,17 @@ export const useRedisAuthState = async (
       return writeData(creds, 'creds')
     }
   }
+}
+
+/**
+ * Clean up session data using the same options as useRedisAuthState
+ */
+export const cleanupSessionWithOptions = async (options: RedisAuthStateOptions): Promise<void> => {
+  const {
+    redis: redisOptions,
+    keyPrefix = 'baileys:session:',
+    sessionId = 'default'
+  } = options
+
+  await cleanupSession(sessionId, redisOptions, keyPrefix)
 } 

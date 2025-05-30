@@ -233,20 +233,61 @@ async function createMultipleSessions() {
 
 ## 🧹 Cleanup
 
-Clean up session resources when done:
+Clean up session resources when done. The library provides two cleanup functions:
 
+### Basic Cleanup (Memory Only)
 ```typescript
 import { cleanupSession } from '@baileys/redis-auth-state'
 
-// Clean up specific session
+// Clean up local resources only (memory cache and connection pools)
 await cleanupSession('session-1')
+```
 
-// Or cleanup in your app shutdown
+### Complete Cleanup (Memory + Redis Data)
+```typescript
+import { cleanupSession, cleanupSessionWithOptions } from '@baileys/redis-auth-state'
+
+// Option 1: Clean up everything including Redis data
+await cleanupSession('session-1', {
+  host: 'localhost',
+  port: 6379
+}, 'baileys:session:') // Optional custom key prefix
+
+// Option 2: Clean up using the same options as useRedisAuthState
+const authOptions = {
+  redis: { host: 'localhost', port: 6379 },
+  sessionId: 'session-1',
+  keyPrefix: 'baileys:session:'
+}
+
+// Use this option when you want to delete everything
+await cleanupSessionWithOptions(authOptions)
+
+// Cleanup in your app shutdown
 process.on('SIGTERM', async () => {
-  await cleanupSession('session-1')
+  await cleanupSessionWithOptions(authOptions)
   process.exit(0)
 })
 ```
+
+### What gets cleaned up?
+
+**Basic cleanup (`cleanupSession` with only sessionId):**
+- ✅ Memory cache for the session
+- ✅ Redis connection pools
+- ❌ **Does NOT delete actual session data from Redis**
+
+**Complete cleanup (`cleanupSession` with Redis options or `cleanupSessionWithOptions`):**
+- ✅ Memory cache for the session  
+- ✅ Redis connection pools
+- ✅ **All session data from Redis** (credentials, keys, etc.)
+- ✅ Uses efficient SCAN operations to find all related keys
+
+### Important Notes
+
+⚠️ **Complete cleanup permanently deletes the session** - the WhatsApp instance will need to re-authenticate (scan QR code again)
+
+🔒 **Basic cleanup preserves the session** - useful for restarting your app without losing authentication
 
 ## 🔍 Error Handling
 
@@ -312,12 +353,29 @@ Returns a Promise that resolves to:
 - `state`: Auth state object for Baileys
 - `saveCreds`: Function to save credentials
 
-### cleanupSession(sessionId)
+### cleanupSession(sessionId, redisOptions?, keyPrefix?)
 
 Cleans up resources for a specific session:
-- Clears memory cache
-- Destroys connection pool
-- Releases connections
+
+**Parameters:**
+- `sessionId` (string): The session ID to clean up
+- `redisOptions` (optional): Redis connection options or client instance
+- `keyPrefix` (optional, default: 'baileys:session:'): Key prefix used for Redis keys
+
+**Behavior:**
+- If only `sessionId` provided: Cleans memory cache and connection pools only
+- If `redisOptions` provided: Also deletes all session data from Redis
+
+### cleanupSessionWithOptions(options)
+
+Convenience function that cleans up session using the same options as `useRedisAuthState`:
+
+**Parameters:**
+- `options` (RedisAuthStateOptions): Same options object used with `useRedisAuthState`
+
+**Behavior:**
+- Always performs complete cleanup (memory + Redis data)
+- Uses the same `sessionId`, `keyPrefix`, and Redis connection from options
 
 ## License
 
