@@ -13,5 +13,6 @@ export {
   migrateSessionKey,
   cleanupLidCache,
   cleanupLidMappings,
-  getLidStats
+  getLidStats,
+  registerLidMapping
 } from './lid-handler' 

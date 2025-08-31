@@ -241,6 +241,53 @@ const { state, saveCreds } = await useRedisAuthState({
 
 ### Manual LID Management
 
+#### Register a New Mapping (Recommended)
+
+The `registerLidMapping` function is the recommended way to register LID↔phone mappings when your application discovers them:
+
+```typescript
+import { registerLidMapping } from '@baileys/redis-auth-state'
+
+// Register mapping when you discover both formats
+const success = await registerLidMapping(
+  redisClient,
+  'my-session',
+  '60196953307@s.whatsapp.net',
+  '114194640801953@lid',
+  {
+    duplicateSessionKeys: true, // Also duplicate existing session keys
+    ttl: 604800, // 7 days TTL
+    keyPrefix: 'baileys:session:' // Optional custom prefix
+  }
+)
+
+// Example: Integration with message handler
+sock.ev.on('messages.upsert', async (m) => {
+  const message = m.messages[0]
+  
+  // Check if message has userReceipt with both formats
+  if (message.userReceipt && message.userReceipt.length > 1) {
+    const lidEntry = message.userReceipt.find(r => r.userJid.includes('@lid'))
+    const phoneEntry = message.userReceipt.find(r => r.userJid.includes('@s.whatsapp.net'))
+    
+    if (lidEntry && phoneEntry) {
+      // Register the mapping immediately
+      await registerLidMapping(
+        redisClient,
+        sessionId,
+        phoneEntry.userJid,
+        lidEntry.userJid,
+        { duplicateSessionKeys: true }
+      )
+    }
+  }
+})
+```
+
+#### Low-level Functions
+
+You can also use lower-level functions for more control:
+
 ```typescript
 import { isLidFormat, storeLidMapping, getLidMapping } from '@baileys/redis-auth-state'
 

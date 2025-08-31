@@ -499,3 +499,140 @@ export const getLidStats = (sessionId: string): { cacheSize: number; cacheHits?:
     cacheSize: cache ? cache.size() : 0
   }
 }
+
+/**
+ * Register a LID to phone number mapping and optionally duplicate session keys
+ * This is the main integration point for applications to manually register mappings
+ * 
+ * @param redis - Redis client instance
+ * @param sessionId - Session identifier
+ * @param phoneNumber - Phone number in format: 60196953307@s.whatsapp.net
+ * @param lid - LID in format: 114194640801953@lid
+ * @param options - Optional configuration
+ * @returns Promise<boolean> - True if successful, false otherwise
+ * 
+ * @example
+ * ```typescript
+ * const success = await registerLidMapping(
+ *   redisClient,
+ *   'my-session',
+ *   '60196953307@s.whatsapp.net',
+ *   '114194640801953@lid',
+ *   { duplicateSessionKeys: true }
+ * )
+ * ```
+ */
+export const registerLidMapping = async (
+  redis: any,
+  sessionId: string,
+  phoneNumber: string,
+  lid: string,
+  options?: {
+    keyPrefix?: string
+    ttl?: number
+    duplicateSessionKeys?: boolean
+    cacheSize?: number
+  }
+): Promise<boolean> => {
+  try {
+    // Set defaults
+    const keyPrefix = options?.keyPrefix || 'baileys:session:'
+    const ttl = options?.ttl || LID_MAPPING_TTL
+    const duplicateSessionKeys = options?.duplicateSessionKeys ?? false
+    const cacheSize = options?.cacheSize || LID_CACHE_SIZE
+    
+    // Validate inputs
+    if (!sessionId || !phoneNumber || !lid) {
+      console.error('[registerLidMapping] Missing required parameters')
+      return false
+    }
+    
+    // Validate formats
+    if (!isPhoneFormat(phoneNumber)) {
+      console.error(`[registerLidMapping] Invalid phone format: ${phoneNumber}`)
+      return false
+    }
+    
+    if (!isLidFormat(lid)) {
+      console.error(`[registerLidMapping] Invalid LID format: ${lid}`)
+      return false
+    }
+    
+    // Store the bidirectional mapping
+    await storeLidMapping(redis, sessionId, lid, phoneNumber, keyPrefix, ttl)
+    
+    // If requested, duplicate existing session keys
+    if (duplicateSessionKeys) {
+      try {
+        const sessionKey = `${keyPrefix}${sessionId}`
+        
+        // Check if session key exists for phone number
+        const phoneSessionKey = `${sessionKey}:session-${phoneNumber}`
+        const phoneSessionData = await redis.get(phoneSessionKey)
+        
+        if (phoneSessionData) {
+          // Duplicate to LID format
+          const lidSessionKey = `${sessionKey}:session-${lid}`
+          const existingLidData = await redis.get(lidSessionKey)
+          
+          if (!existingLidData) {
+            // Get TTL of original key
+            const phoneTTL = await redis.ttl(phoneSessionKey)
+            
+            if (phoneTTL > 0) {
+              // Set with same TTL
+              if (typeof redis.setex === 'function' || typeof redis.setEx === 'function') {
+                const setMethod = redis.setex ? 'setex' : 'setEx'
+                await redis[setMethod](lidSessionKey, phoneTTL, phoneSessionData)
+              } else {
+                await redis.set(lidSessionKey, phoneSessionData, 'EX', phoneTTL)
+              }
+            } else {
+              // No TTL or permanent key
+              await redis.set(lidSessionKey, phoneSessionData)
+            }
+            
+            console.log(`[registerLidMapping] Duplicated session key from ${phoneNumber} to ${lid}`)
+          }
+        }
+        
+        // Check if session key exists for LID
+        const lidSessionKey = `${sessionKey}:session-${lid}`
+        const lidSessionData = await redis.get(lidSessionKey)
+        
+        if (lidSessionData && !phoneSessionData) {
+          // Duplicate to phone format
+          const phoneSessionKey = `${sessionKey}:session-${phoneNumber}`
+          
+          // Get TTL of original key
+          const lidTTL = await redis.ttl(lidSessionKey)
+          
+          if (lidTTL > 0) {
+            // Set with same TTL
+            if (typeof redis.setex === 'function' || typeof redis.setEx === 'function') {
+              const setMethod = redis.setex ? 'setex' : 'setEx'
+              await redis[setMethod](phoneSessionKey, lidTTL, lidSessionData)
+            } else {
+              await redis.set(phoneSessionKey, lidSessionData, 'EX', lidTTL)
+            }
+          } else {
+            // No TTL or permanent key
+            await redis.set(phoneSessionKey, lidSessionData)
+          }
+          
+          console.log(`[registerLidMapping] Duplicated session key from ${lid} to ${phoneNumber}`)
+        }
+      } catch (error) {
+        console.error('[registerLidMapping] Error duplicating session keys:', error)
+        // Don't fail the whole operation if key duplication fails
+      }
+    }
+    
+    console.log(`[registerLidMapping] Successfully registered mapping: ${lid} <-> ${phoneNumber} for session ${sessionId}`)
+    return true
+    
+  } catch (error) {
+    console.error('[registerLidMapping] Error registering LID mapping:', error)
+    return false
+  }
+}
