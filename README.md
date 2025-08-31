@@ -284,6 +284,32 @@ sock.ev.on('messages.upsert', async (m) => {
 })
 ```
 
+#### Ensure Session Keys for Both Formats
+
+Use `ensureSessionKeyForBothFormats` to guarantee session keys exist for both phone and LID formats. This is especially useful before sending messages:
+
+```typescript
+import { ensureSessionKeyForBothFormats } from '@baileys/redis-auth-state'
+
+// Before sending a message to a contact that might use LID format
+const result = await ensureSessionKeyForBothFormats(
+  redisClient,
+  sessionId,
+  '60196953307@s.whatsapp.net',
+  '114194640801953@lid',
+  'baileys:auth:'  // Must match your keyPrefix
+)
+
+console.log(`Phone key exists: ${result.phoneKeyExists}`)
+console.log(`LID key exists: ${result.lidKeyExists}`)
+console.log(`Keys duplicated: ${result.duplicated}`)
+
+// Now safe to send messages to either format
+if (result.lidKeyExists) {
+  // Can send to 114194640801953@lid
+}
+```
+
 #### Low-level Functions
 
 You can also use lower-level functions for more control:

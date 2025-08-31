@@ -501,6 +501,144 @@ export const getLidStats = (sessionId: string): { cacheSize: number; cacheHits?:
 }
 
 /**
+ * Ensure session keys exist for both phone and LID formats
+ * This function specifically handles the case where session keys need to be available
+ * for outgoing messages to either format
+ * 
+ * @param redis - Redis client instance
+ * @param sessionId - Session identifier
+ * @param phoneNumber - Phone number in format: 60196953307@s.whatsapp.net
+ * @param lid - LID in format: 114194640801953@lid
+ * @param keyPrefix - Redis key prefix (default: 'baileys:session:')
+ * @returns Promise<{ phoneKeyExists: boolean, lidKeyExists: boolean, duplicated: boolean }>
+ * 
+ * @example
+ * ```typescript
+ * // Before sending a message to a LID format
+ * const result = await ensureSessionKeyForBothFormats(
+ *   redisClient,
+ *   'my-session',
+ *   '60196953307@s.whatsapp.net',
+ *   '114194640801953@lid',
+ *   'baileys:auth:'
+ * )
+ * ```
+ */
+export const ensureSessionKeyForBothFormats = async (
+  redis: any,
+  sessionId: string,
+  phoneNumber: string,
+  lid: string,
+  keyPrefix: string = 'baileys:session:'
+): Promise<{ phoneKeyExists: boolean; lidKeyExists: boolean; duplicated: boolean }> => {
+  const result = {
+    phoneKeyExists: false,
+    lidKeyExists: false,
+    duplicated: false
+  }
+  
+  try {
+    // Validate inputs
+    if (!sessionId || !phoneNumber || !lid) {
+      console.error('[ensureSessionKeyForBothFormats] Missing required parameters')
+      return result
+    }
+    
+    // Validate formats
+    if (!isPhoneFormat(phoneNumber)) {
+      console.error(`[ensureSessionKeyForBothFormats] Invalid phone format: ${phoneNumber}`)
+      return result
+    }
+    
+    if (!isLidFormat(lid)) {
+      console.error(`[ensureSessionKeyForBothFormats] Invalid LID format: ${lid}`)
+      return result
+    }
+    
+    const sessionKey = `${keyPrefix}${sessionId}`
+    const phoneSessionKey = `${sessionKey}:session-${phoneNumber}`
+    const lidSessionKey = `${sessionKey}:session-${lid}`
+    
+    console.log(`[ensureSessionKeyForBothFormats] Checking keys:`)
+    console.log(`  Phone: ${phoneSessionKey}`)
+    console.log(`  LID: ${lidSessionKey}`)
+    
+    // Check both keys
+    const [phoneData, lidData] = await Promise.all([
+      redis.get(phoneSessionKey),
+      redis.get(lidSessionKey)
+    ])
+    
+    result.phoneKeyExists = !!phoneData
+    result.lidKeyExists = !!lidData
+    
+    console.log(`[ensureSessionKeyForBothFormats] Key status:`)
+    console.log(`  Phone exists: ${result.phoneKeyExists} (${phoneData ? phoneData.length + ' bytes' : 'not found'})`)
+    console.log(`  LID exists: ${result.lidKeyExists} (${lidData ? lidData.length + ' bytes' : 'not found'})`)
+    
+    // If one exists but not the other, duplicate
+    if (phoneData && !lidData) {
+      console.log(`[ensureSessionKeyForBothFormats] Duplicating phone → LID`)
+      
+      // Get TTL of phone key
+      const ttl = await redis.ttl(phoneSessionKey)
+      
+      if (ttl > 0) {
+        if (typeof redis.setex === 'function' || typeof redis.setEx === 'function') {
+          const setMethod = redis.setex ? 'setex' : 'setEx'
+          await redis[setMethod](lidSessionKey, ttl, phoneData)
+        } else {
+          await redis.set(lidSessionKey, phoneData, 'EX', ttl)
+        }
+      } else {
+        await redis.set(lidSessionKey, phoneData)
+      }
+      
+      result.duplicated = true
+      result.lidKeyExists = true
+      console.log(`[ensureSessionKeyForBothFormats] ✅ Created LID session key`)
+      
+    } else if (lidData && !phoneData) {
+      console.log(`[ensureSessionKeyForBothFormats] Duplicating LID → phone`)
+      
+      // Get TTL of LID key
+      const ttl = await redis.ttl(lidSessionKey)
+      
+      if (ttl > 0) {
+        if (typeof redis.setex === 'function' || typeof redis.setEx === 'function') {
+          const setMethod = redis.setex ? 'setex' : 'setEx'
+          await redis[setMethod](phoneSessionKey, ttl, lidData)
+        } else {
+          await redis.set(phoneSessionKey, lidData, 'EX', ttl)
+        }
+      } else {
+        await redis.set(phoneSessionKey, lidData)
+      }
+      
+      result.duplicated = true
+      result.phoneKeyExists = true
+      console.log(`[ensureSessionKeyForBothFormats] ✅ Created phone session key`)
+      
+    } else if (!phoneData && !lidData) {
+      console.warn(`[ensureSessionKeyForBothFormats] ⚠️ No session keys found for either format!`)
+      console.warn(`  This may indicate the session was never established with this contact.`)
+    } else {
+      console.log(`[ensureSessionKeyForBothFormats] Both keys already exist, no duplication needed`)
+    }
+    
+    // Also ensure the LID mapping exists
+    if (result.phoneKeyExists || result.lidKeyExists) {
+      await storeLidMapping(redis, sessionId, lid, phoneNumber, keyPrefix, LID_MAPPING_TTL)
+    }
+    
+  } catch (error) {
+    console.error('[ensureSessionKeyForBothFormats] Error:', error)
+  }
+  
+  return result
+}
+
+/**
  * Register a LID to phone number mapping and optionally duplicate session keys
  * This is the main integration point for applications to manually register mappings
  * 
@@ -539,7 +677,6 @@ export const registerLidMapping = async (
     const keyPrefix = options?.keyPrefix || 'baileys:session:'
     const ttl = options?.ttl || LID_MAPPING_TTL
     const duplicateSessionKeys = options?.duplicateSessionKeys ?? false
-    const cacheSize = options?.cacheSize || LID_CACHE_SIZE
     
     // Validate inputs
     if (!sessionId || !phoneNumber || !lid) {
@@ -565,19 +702,24 @@ export const registerLidMapping = async (
     if (duplicateSessionKeys) {
       try {
         const sessionKey = `${keyPrefix}${sessionId}`
+        console.log(`[registerLidMapping] Checking session keys with base: ${sessionKey}`)
         
         // Check if session key exists for phone number
         const phoneSessionKey = `${sessionKey}:session-${phoneNumber}`
+        console.log(`[registerLidMapping] Checking for phone session key: ${phoneSessionKey}`)
         const phoneSessionData = await redis.get(phoneSessionKey)
         
         if (phoneSessionData) {
+          console.log(`[registerLidMapping] Found phone session key, data length: ${phoneSessionData.length}`)
           // Duplicate to LID format
           const lidSessionKey = `${sessionKey}:session-${lid}`
           const existingLidData = await redis.get(lidSessionKey)
           
           if (!existingLidData) {
+            console.log(`[registerLidMapping] No existing LID session key, creating: ${lidSessionKey}`)
             // Get TTL of original key
             const phoneTTL = await redis.ttl(phoneSessionKey)
+            console.log(`[registerLidMapping] Phone session key TTL: ${phoneTTL}`)
             
             if (phoneTTL > 0) {
               // Set with same TTL
@@ -592,20 +734,28 @@ export const registerLidMapping = async (
               await redis.set(lidSessionKey, phoneSessionData)
             }
             
-            console.log(`[registerLidMapping] Duplicated session key from ${phoneNumber} to ${lid}`)
+            console.log(`[registerLidMapping] ✅ Duplicated session key from ${phoneNumber} to ${lid}`)
+          } else {
+            console.log(`[registerLidMapping] LID session key already exists: ${lidSessionKey}`)
           }
+        } else {
+          console.log(`[registerLidMapping] No phone session key found: ${phoneSessionKey}`)
         }
         
         // Check if session key exists for LID
         const lidSessionKey = `${sessionKey}:session-${lid}`
+        console.log(`[registerLidMapping] Checking for LID session key: ${lidSessionKey}`)
         const lidSessionData = await redis.get(lidSessionKey)
         
         if (lidSessionData && !phoneSessionData) {
+          console.log(`[registerLidMapping] Found LID session key, data length: ${lidSessionData.length}`)
           // Duplicate to phone format
           const phoneSessionKey = `${sessionKey}:session-${phoneNumber}`
+          console.log(`[registerLidMapping] Creating phone session key: ${phoneSessionKey}`)
           
           // Get TTL of original key
           const lidTTL = await redis.ttl(lidSessionKey)
+          console.log(`[registerLidMapping] LID session key TTL: ${lidTTL}`)
           
           if (lidTTL > 0) {
             // Set with same TTL
@@ -620,7 +770,11 @@ export const registerLidMapping = async (
             await redis.set(phoneSessionKey, lidSessionData)
           }
           
-          console.log(`[registerLidMapping] Duplicated session key from ${lid} to ${phoneNumber}`)
+          console.log(`[registerLidMapping] ✅ Duplicated session key from ${lid} to ${phoneNumber}`)
+        } else if (lidSessionData && phoneSessionData) {
+          console.log(`[registerLidMapping] Both session keys already exist`)
+        } else if (!lidSessionData) {
+          console.log(`[registerLidMapping] No LID session key found: ${lidSessionKey}`)
         }
       } catch (error) {
         console.error('[registerLidMapping] Error duplicating session keys:', error)
