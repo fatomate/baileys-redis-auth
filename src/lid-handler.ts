@@ -105,14 +105,14 @@ export const cleanupLidCache = (sessionId: string): void => {
  * Check if a JID is in @lid format
  */
 export const isLidFormat = (jid: string): boolean => {
-  return jid && typeof jid === 'string' && jid.includes('@lid')
+  return !!jid && typeof jid === 'string' && jid.includes('@lid')
 }
 
 /**
  * Check if a JID is in phone number format
  */
 export const isPhoneFormat = (jid: string): boolean => {
-  return jid && typeof jid === 'string' && jid.includes('@s.whatsapp.net')
+  return !!jid && typeof jid === 'string' && jid.includes('@s.whatsapp.net')
 }
 
 /**
