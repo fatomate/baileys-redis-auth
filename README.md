@@ -11,7 +11,7 @@ A **Redis-based authentication state manager** for the [Baileys](https://github.
 - **🗜️ Data Serialization** - Efficient JSON serialization with Buffer support
 - **🔒 Session Isolation** - Separate cache and connection pools per session
 - **⚡ Performance Optimized** - Designed for high-throughput applications
-- **🆕 @lid Format Support** - Automatic handling of WhatsApp's @lid format (v1.1.0+)
+- **🆕 @lid Format Support** - Simple mapping between WhatsApp's @lid and phone formats (v1.1.0+)
 
 ## Installation
 
@@ -255,7 +255,6 @@ const success = await registerLidMapping(
   '60196953307@s.whatsapp.net',
   '114194640801953@lid',
   {
-    duplicateSessionKeys: true, // Also duplicate existing session keys
     ttl: 604800, // 7 days TTL
     keyPrefix: 'baileys:session:' // Optional custom prefix
   }
@@ -277,38 +276,22 @@ sock.ev.on('messages.upsert', async (m) => {
         sessionId,
         phoneEntry.userJid,
         lidEntry.userJid,
-        { duplicateSessionKeys: true }
+        {}
       )
     }
   }
 })
 ```
 
-#### Ensure Session Keys for Both Formats
+#### Session Recovery with @lid Format
 
-Use `ensureSessionKeyForBothFormats` to guarantee session keys exist for both phone and LID formats. This is especially useful before sending messages:
+**Important Change in v1.1.3:** The library now handles @lid format messages the same way as Baileys' multi-file auth state. When WhatsApp sends messages using @lid format and no session exists:
 
-```typescript
-import { ensureSessionKeyForBothFormats } from '@baileys/redis-auth-state'
+1. The library returns `null` for missing sessions (not undefined or empty objects)
+2. WhatsApp automatically sends PLACEHOLDER_MESSAGE_RESEND messages to recover the session
+3. Baileys handles the recovery transparently
 
-// Before sending a message to a contact that might use LID format
-const result = await ensureSessionKeyForBothFormats(
-  redisClient,
-  sessionId,
-  '60196953307@s.whatsapp.net',
-  '114194640801953@lid',
-  'baileys:auth:'  // Must match your keyPrefix
-)
-
-console.log(`Phone key exists: ${result.phoneKeyExists}`)
-console.log(`LID key exists: ${result.lidKeyExists}`)
-console.log(`Keys duplicated: ${result.duplicated}`)
-
-// Now safe to send messages to either format
-if (result.lidKeyExists) {
-  // Can send to 114194640801953@lid
-}
-```
+This eliminates the need for manual session key duplication. The `ensureSessionKeyForBothFormats` function has been removed as it's unnecessary - let WhatsApp's protocol handle session recovery naturally.
 
 #### Low-level Functions
 

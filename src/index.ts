@@ -14,6 +14,5 @@ export {
   cleanupLidCache,
   cleanupLidMappings,
   getLidStats,
-  registerLidMapping,
-  ensureSessionKeyForBothFormats
+  registerLidMapping
 } from './lid-handler' 

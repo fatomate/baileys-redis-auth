@@ -1,14 +1,7 @@
 import { RedisAuthStateOptions } from './types'
 import { 
-  isLidFormat, 
-  isPhoneFormat, 
-  storeLidMapping, 
-  getLidMapping, 
-  getReverseLidMapping,
-  expandSessionKeys,
   cleanupLidCache,
-  cleanupLidMappings,
-  getLidStats
+  cleanupLidMappings
 } from './lid-handler'
 
 // Per-session memory caches for better isolation
@@ -619,63 +612,29 @@ export const useRedisAuthState = async (
       creds,
       keys: {
         get: async (type: string, ids: string[]) => {
-          let expandedIds = ids
-          const originalToExpanded = new Map<string, string[]>()
-          
-          // Handle LID expansion for session keys if enabled
-          if (enableLidSupport && type === 'session') {
-            const expansionMap = await expandSessionKeys(redis, sessionId, ids.map(id => `${type}-${id}`), keyPrefix)
-            expandedIds = []
-            
-            for (const id of ids) {
-              const key = `${type}-${id}`
-              const expanded = expansionMap.get(key) || [key]
-              originalToExpanded.set(id, expanded.map(k => k.replace(`${type}-`, '')))
-              expandedIds.push(...expanded.map(k => k.replace(`${type}-`, '')))
-            }
-            
-            // Remove duplicates
-            expandedIds = [...new Set(expandedIds)]
-          }
-          
-          const keyedIds = expandedIds.map(id => `${type}-${id}`)
+          const keyedIds = ids.map(id => `${type}-${id}`)
           const data = await bulkRead(keyedIds)
           
           const result: { [id: string]: any } = {}
           for (const id of ids) {
-            // Check original key first
             const key = `${type}-${id}`
-            if (data[key] !== undefined) {
-              let value = data[key]
-              
+            const value = data[key]
+            
+            // Return null for missing keys, just like multi-file auth
+            if (value === undefined || value === null) {
+              result[id] = null
+            } else {
               // Special handling for app-state-sync-key
               if (type === 'app-state-sync-key' && value) {
                 try {
                   const { proto } = eval('require')('baileys/WAProto')
-                  value = proto.Message.AppStateSyncKeyData.fromObject(value)
+                  result[id] = proto.Message.AppStateSyncKeyData.fromObject(value)
                 } catch (error: any) {
                   // Baileys not available, keep original value
+                  result[id] = value
                 }
-              }
-              
-              result[id] = value
-            } else if (enableLidSupport && type === 'session' && originalToExpanded.has(id)) {
-              // Check expanded keys for session type
-              const expandedForId = originalToExpanded.get(id)!
-              for (const expandedId of expandedForId) {
-                const expandedKey = `${type}-${expandedId}`
-                if (data[expandedKey] !== undefined) {
-                  result[id] = data[expandedKey]
-                  console.log(`[Redis Auth] Found session under alternate format: ${id} -> ${expandedId}`)
-                  
-                  // Store the mapping for future use
-                  if (isLidFormat(id) && isPhoneFormat(expandedId)) {
-                    await storeLidMapping(redis, sessionId, id, expandedId, keyPrefix, lidMappingTTL)
-                  } else if (isPhoneFormat(id) && isLidFormat(expandedId)) {
-                    await storeLidMapping(redis, sessionId, expandedId, id, keyPrefix, lidMappingTTL)
-                  }
-                  break
-                }
+              } else {
+                result[id] = value
               }
             }
           }
@@ -685,46 +644,13 @@ export const useRedisAuthState = async (
         
         set: async (data: any) => {
           const writeOperations: { [key: string]: any } = {}
-          const lidMappingPromises: Promise<void>[] = []
           
           for (const category in data) {
             for (const id in data[category]) {
               const value = data[category][id]
               const key = `${category}-${id}`
               writeOperations[key] = value
-              
-              // For session keys with LID support, store under both formats
-              if (enableLidSupport && category === 'session' && value !== null && value !== undefined) {
-                if (isLidFormat(id)) {
-                  // Try to get phone mapping and store under both
-                  lidMappingPromises.push(
-                    getLidMapping(redis, sessionId, id, keyPrefix).then(phoneNumber => {
-                      if (phoneNumber) {
-                        const phoneKey = `${category}-${phoneNumber}`
-                        writeOperations[phoneKey] = value
-                        console.log(`[Redis Auth] Dual storing session: ${id} and ${phoneNumber}`)
-                      }
-                    })
-                  )
-                } else if (isPhoneFormat(id)) {
-                  // Try to get LID mapping and store under both
-                  lidMappingPromises.push(
-                    getReverseLidMapping(redis, sessionId, id, keyPrefix).then(lid => {
-                      if (lid) {
-                        const lidKey = `${category}-${lid}`
-                        writeOperations[lidKey] = value
-                        console.log(`[Redis Auth] Dual storing session: ${id} and ${lid}`)
-                      }
-                    })
-                  )
-                }
-              }
             }
-          }
-          
-          // Wait for all LID lookups to complete
-          if (lidMappingPromises.length > 0) {
-            await Promise.all(lidMappingPromises)
           }
 
           await bulkWrite(writeOperations)

@@ -4,14 +4,14 @@ messages.upsert received for instance 6860DCA0E2819 : {
       "key": {
         "remoteJid": "60196953307@s.whatsapp.net",
         "fromMe": false,
-        "id": "3A1091966F18D6404E50",
+        "id": "3A39935C8D1738F00209",
         "senderLid": "114194640801953@lid"
       },
-      "messageTimestamp": 1756650006,
+      "messageTimestamp": 1756651176,
       "pushName": "Firdaus Azizi",
       "broadcast": false,
       "message": {
-        "conversation": "botcheck",
+        "conversation": "Botcheck",
         "messageContextInfo": {
           "deviceListMetadata": {
             "senderKeyHash": "UbAAeMdA5GR/wQ==",
@@ -20,7 +20,7 @@ messages.upsert received for instance 6860DCA0E2819 : {
             "recipientTimestamp": "1756648009"
           },
           "deviceListMetadataVersion": 2,
-          "messageSecret": "lP5yn5ufmXnRKXQ4hNklB3UCbsOJbiy09dGpRIAMgSs="
+          "messageSecret": "2kXAdzuMGQcrQBl1XEyUk4edwfPMQe6JHRCv0F8dzKM="
         }
       }
     }
@@ -29,10 +29,15 @@ messages.upsert received for instance 6860DCA0E2819 : {
 }
 [LID] Pattern 3: FromMe=false, only senderLid (waiting for phone discovery)
 [LID Handler] Stored mapping: 114194640801953@lid <-> 60196953307@s.whatsapp.net for session 6860DCA0E2819
+[registerLidMapping] Checking session keys with base: baileys:auth:6860DCA0E2819
+[registerLidMapping] Checking for phone session key: baileys:auth:6860DCA0E2819:session-60196953307@s.whatsapp.net
+[registerLidMapping] No phone session key found: baileys:auth:6860DCA0E2819:session-60196953307@s.whatsapp.net
+[registerLidMapping] Checking for LID session key: baileys:auth:6860DCA0E2819:session-114194640801953@lid
+[registerLidMapping] No LID session key found: baileys:auth:6860DCA0E2819:session-114194640801953@lid
 [registerLidMapping] Successfully registered mapping: 114194640801953@lid <-> 60196953307@s.whatsapp.net for session 6860DCA0E2819
 chatMessage is botcheck
-Would save message to MongoDB: 3A1091966F18D6404E50
-Emitted new_message_1 for message: 3A1091966F18D6404E50 (type: text, media: pending)
+Would save message to MongoDB: 3A39935C8D1738F00209
+Emitted new_message_1 for message: 3A39935C8D1738F00209 (type: text, media: pending)
 Contacts update received for instance id 6860DCA0E2819
 Contacts Updated: [
   {
@@ -43,7 +48,7 @@ Contacts Updated: [
 Sending text message to 60196953307@s.whatsapp.net from instance id 6860DCA0E2819
 chatbot connection is active for instance 6860DCA0E2819
 Updated ai_credit_count for team 1 to 387
-next_update for team 1 is less than currentTime, updating next_update to 1756650037
+next_update for team 1 is less than currentTime, updating next_update to 1756651206
 Updating sp_whatsapp_stats for team 1
 messages.upsert received for instance 6860DCA0E2819 : {
   "messages": [
@@ -51,21 +56,22 @@ messages.upsert received for instance 6860DCA0E2819 : {
       "key": {
         "remoteJid": "60196953307@s.whatsapp.net",
         "fromMe": true,
-        "id": "3EB0ACB289301E13CACA60"
+        "id": "3EB05272103BF305201164"
       },
       "message": {
         "extendedTextMessage": {
           "text": "_chatbot connection is active_"
         }
       },
-      "messageTimestamp": "1756650006",
+      "messageTimestamp": "1756651176",
       "status": "PENDING"
     }
   ],
   "type": "append"
 }
-Would save message to MongoDB: 3EB0ACB289301E13CACA60
-Emitted new_message_1 for message: 3EB0ACB289301E13CACA60 (type: text, media: pending)
+Would save message to MongoDB: 3EB05272103BF305201164
+Emitted new_message_1 for message: 3EB05272103BF305201164 (type: text, media: pending)
+[2025-08-31 22:39:44] Memory (app): RSS=192.48 MB, Heap=114.77 MB/121.63 MB
 Failed to decrypt message with any known session...
 Session error:Error: Bad MAC Error: Bad MAC
     at Object.verifyMAC (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/crypto.js:87:15)
@@ -88,16 +94,30 @@ Session error:Error: Bad MAC Error: Bad MAC
     at async SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:147:29)
     at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)
     at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)
-{"level":50,"time":"2025-08-31T14:20:16.193Z","pid":564699,"hostname":"wabotv3-sql","key":{"remoteJid":"114194640801953@lid","fromMe":true,"id":"9B97CACA15870237D0E72D082FCCE7ED"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:161:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)\n    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)","name":"SessionError"},"messageType":"msg","sender":"80758756622573@lid","author":"80758756622573@lid","isSessionRecordError":false,"msg":"failed to decrypt message"}
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:250:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:147:29)
+    at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)
+    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:250:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:147:29)
+    at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)
+    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)
+{"level":50,"time":"2025-08-31T14:39:56.325Z","pid":567355,"hostname":"wabotv3-sql","key":{"remoteJid":"114194640801953@lid","fromMe":true,"id":"5039831BE3DAE5C0EE183018363B5557"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:161:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)\n    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)","name":"SessionError"},"messageType":"msg","sender":"80758756622573@lid","author":"80758756622573@lid","isSessionRecordError":false,"msg":"failed to decrypt message"}
 messages.upsert received for instance 6860DCA0E2819 : {
   "messages": [
     {
       "key": {
         "remoteJid": "114194640801953@lid",
         "fromMe": true,
-        "id": "9B97CACA15870237D0E72D082FCCE7ED"
+        "id": "5039831BE3DAE5C0EE183018363B5557"
       },
-      "messageTimestamp": 1756650016,
+      "messageTimestamp": 1756651196,
       "pushName": "Wabot Demo",
       "broadcast": false,
       "status": 2,
@@ -111,20 +131,25 @@ messages.upsert received for instance 6860DCA0E2819 : {
 }
 [LID] Pattern 2: FromMe=true, LID remoteJid (need reverse lookup)
 Normalized @lid 114194640801953@lid to 60196953307@s.whatsapp.net
-Would save message to MongoDB: 9B97CACA15870237D0E72D082FCCE7ED
-Emitted new_message_1 for message: 9B97CACA15870237D0E72D082FCCE7ED (type: text, media: pending)
 [LID] No cached mapping, attempting reverse lookup for 114194640801953@lid
 [LidHandler] Attempting reverse lookup for LID: 114194640801953@lid
+Would save message to MongoDB: 5039831BE3DAE5C0EE183018363B5557
+Emitted new_message_1 for message: 5039831BE3DAE5C0EE183018363B5557 (type: text, media: pending)
 [LID] Warning: Could not resolve LID 114194640801953@lid for fromMe message
+Checking for stale campaigns
+Checking for stale campaigns...
+No campaigns in the processing set.
+Checking for stuck processing campaigns in database...
+No stuck processing campaigns found in database.
 messages.upsert received for instance 6860DCA0E2819 : {
   "messages": [
     {
       "key": {
         "remoteJid": "60173577321@s.whatsapp.net",
         "fromMe": true,
-        "id": "7D5F69AE984003F31258D8D78EE1F73A"
+        "id": "F23E4D9FDED4E7A955653518FF341186"
       },
-      "messageTimestamp": 1756650021,
+      "messageTimestamp": 1756651203,
       "broadcast": false,
       "status": 2,
       "message": {
@@ -132,12 +157,12 @@ messages.upsert received for instance 6860DCA0E2819 : {
           "type": "PEER_DATA_OPERATION_REQUEST_RESPONSE_MESSAGE",
           "peerDataOperationRequestResponseMessage": {
             "peerDataOperationRequestType": "PLACEHOLDER_MESSAGE_RESEND",
-            "stanzaId": "3EB0903223EB067A3FC0D4",
+            "stanzaId": "3EB0F0BBA33325DAAB0228",
             "peerDataOperationResult": [
               {
                 "mediaUploadResult": "SUCCESS",
                 "placeholderMessageResendResponse": {
-                  "webMessageInfoBytes": "CjkKEzExNDE5NDY0MDgwMTk1M0BsaWQQARogOUI5N0NBQ0ExNTg3MDIzN0QwRTcyRDA4MkZDQ0U3RUQSKwoESHVodZoCIhoghL5nSgA3pKNYmJ5rOw0EF4Z0UqKTbWAttbkrtO9rvIYYn7TRxQYgBDCgtNHFBsICJgoaNjAxOTY5NTMzMDdAcy53aGF0c2FwcC5uZXQQABigtNHFBiAAwgIfChMxMTQxOTQ2NDA4MDE5NTNAbGlkEKC00cUGGAAgAIoDIIS+Z0oAN6SjWJieazsNBBeGdFKik21gLbW5K7Tva7yGiAQA"
+                  "webMessageInfoBytes": "CjkKEzExNDE5NDY0MDgwMTk1M0BsaWQQARogNTAzOTgzMUJFM0RBRTVDMEVFMTgzMDE4MzYzQjU1NTcSKQoCSHWaAiIaIKPPzCI3Ef6eN4CD9LcB/+wXtnQElbRHQsQJR8H/k32zGLy90cUGIATCAiYKGjYwMTk2OTUzMzA3QHMud2hhdHNhcHAubmV0EAAYvL3RxQYgAMICHwoTMTE0MTk0NjQwODAxOTUzQGxpZBC8vdHFBhgAIACKAyCjz8wiNxH+njeAg/S3Af/sF7Z0BJW0R0LECUfB/5N9s4gEAA=="
                 }
               }
             ]
@@ -148,39 +173,47 @@ messages.upsert received for instance 6860DCA0E2819 : {
   ],
   "type": "notify"
 }
-Skipping protocolMessage for instance 6860DCA0E2819: 17
 Failed to decrypt message with any known session...
 Session error:Error: Bad MAC Error: Bad MAC
     at Object.verifyMAC (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/crypto.js:87:15)
     at SessionCipher.doDecryptWhisperMessage (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:250:16)
-    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
     at async SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:147:29)
     at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)
     at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)
 Session error:Error: Bad MAC Error: Bad MAC
     at Object.verifyMAC (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/crypto.js:87:15)
     at SessionCipher.doDecryptWhisperMessage (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:250:16)
-    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
     at async SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:147:29)
     at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)
     at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)
 Session error:Error: Bad MAC Error: Bad MAC
     at Object.verifyMAC (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/crypto.js:87:15)
     at SessionCipher.doDecryptWhisperMessage (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:250:16)
-    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
     at async SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:147:29)
     at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)
     at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)
-{"level":50,"time":"2025-08-31T14:20:21.834Z","pid":564699,"hostname":"wabotv3-sql","key":{"remoteJid":"114194640801953@lid","fromMe":true,"id":"9B97CACA15870237D0E72D082FCCE7ED"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:161:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)\n    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)","name":"SessionError"},"messageType":"msg","sender":"80758756622573@lid","author":"80758756622573@lid","isSessionRecordError":false,"msg":"failed to decrypt message"}
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:147:29)
+    at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)
+    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:147:29)
+    at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)
+    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)
+{"level":50,"time":"2025-08-31T14:40:03.154Z","pid":567355,"hostname":"wabotv3-sql","key":{"remoteJid":"114194640801953@lid","fromMe":true,"id":"5039831BE3DAE5C0EE183018363B5557"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:161:15)\n    at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)\n    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)","name":"SessionError"},"messageType":"msg","sender":"80758756622573@lid","author":"80758756622573@lid","isSessionRecordError":false,"msg":"failed to decrypt message"}
 messages.upsert received for instance 6860DCA0E2819 : {
   "messages": [
     {
       "key": {
         "remoteJid": "114194640801953@lid",
         "fromMe": true,
-        "id": "9B97CACA15870237D0E72D082FCCE7ED"
+        "id": "5039831BE3DAE5C0EE183018363B5557"
       },
-      "messageTimestamp": 1756650021,
+      "messageTimestamp": 1756651203,
       "pushName": "Wabot Demo",
       "broadcast": false,
       "status": 2,
@@ -193,8 +226,9 @@ messages.upsert received for instance 6860DCA0E2819 : {
   "type": "notify"
 }
 [LID] Pattern 2: FromMe=true, LID remoteJid (need reverse lookup)
+Skipping protocolMessage for instance 6860DCA0E2819: 17
 Normalized @lid 114194640801953@lid to 60196953307@s.whatsapp.net
-Skipping duplicate message: 9B97CACA15870237D0E72D082FCCE7ED:stub
+Skipping duplicate message: 5039831BE3DAE5C0EE183018363B5557:stub
 [LID] No cached mapping, attempting reverse lookup for 114194640801953@lid
 [LidHandler] Attempting reverse lookup for LID: 114194640801953@lid
 [LID] Warning: Could not resolve LID 114194640801953@lid for fromMe message
@@ -204,68 +238,68 @@ messages.upsert received for instance 6860DCA0E2819 : {
       "key": {
         "remoteJid": "114194640801953@lid",
         "fromMe": true,
-        "id": "9B97CACA15870237D0E72D082FCCE7ED"
+        "id": "5039831BE3DAE5C0EE183018363B5557"
       },
       "message": {
-        "conversation": "Huhu",
+        "conversation": "Hu",
         "messageContextInfo": {
-          "messageSecret": "hL5nSgA3pKNYmJ5rOw0EF4Z0UqKTbWAttbkrtO9rvIY="
+          "messageSecret": "o8/MIjcR/p43gIP0twH/7Be2dASVtEdCxAlHwf+TfbM="
         }
       },
-      "messageTimestamp": "1756650015",
+      "messageTimestamp": "1756651196",
       "status": "READ",
-      "messageC2STimestamp": "1756650016",
       "userReceipt": [
         {
           "userJid": "60196953307@s.whatsapp.net",
           "receiptTimestamp": "0",
-          "readTimestamp": "1756650016",
+          "readTimestamp": "1756651196",
           "playedTimestamp": "0"
         },
         {
           "userJid": "114194640801953@lid",
-          "receiptTimestamp": "1756650016",
+          "receiptTimestamp": "1756651196",
           "readTimestamp": "0",
           "playedTimestamp": "0"
         }
       ],
-      "messageSecret": "hL5nSgA3pKNYmJ5rOw0EF4Z0UqKTbWAttbkrtO9rvIY=",
+      "messageSecret": "o8/MIjcR/p43gIP0twH/7Be2dASVtEdCxAlHwf+TfbM=",
       "isMentionedInStatus": false
     }
   ],
   "type": "notify",
-  "requestId": "3EB0903223EB067A3FC0D4"
+  "requestId": "3EB0F0BBA33325DAAB0228"
 }
 [LID] Pattern 2: FromMe=true, LID remoteJid (need reverse lookup)
 Normalized @lid 114194640801953@lid to 60196953307@s.whatsapp.net
-Skipping duplicate message: 9B97CACA15870237D0E72D082FCCE7ED:stub
+Skipping duplicate message: 5039831BE3DAE5C0EE183018363B5557:stub
 [LID] No cached mapping, attempting reverse lookup for 114194640801953@lid
 [LidHandler] Attempting reverse lookup for LID: 114194640801953@lid
 [LID] Warning: Could not resolve LID 114194640801953@lid for fromMe message
-[2025-08-31 22:20:25] Memory (app): RSS=200.20 MB, Heap=118.15 MB/126.38 MB
 Closing open session in favor of incoming prekey bundle
 Closing session: SessionEntry {
   _chains: {
-    'BUs0cEuEuqL7AKIPP4YPRz/R/BLnTvs+btDplpBuftsj': { chainKey: [Object], chainType: 2, messageKeys: [Object] },
-    'BQSfcgSEcVzHSU34voPniGPC6s2gpLrhjVBILmxtw+gb': { chainKey: [Object], chainType: 2, messageKeys: [Object] },
-    BRZyJsmI1SfYV6Yx9pAs63tiwu3DcDimrDR9KGy3FldB: { chainKey: [Object], chainType: 1, messageKeys: {} }
+    'BXdDrP0AvC5BhO+QyeCJPbLjaQvTsVwPEncyMyOZ5T4Y': { chainKey: [Object], chainType: 2, messageKeys: [Object] },
+    BU1KqrJ23yFVuURDYX62JCTJjYBMhvNqfLD4ImJm3MI5: { chainKey: [Object], chainType: 2, messageKeys: [Object] },
+    'BV5V4HXsVWsXnUfrtOBfD0jelHl/vunWD43f4v1SYqMg': { chainKey: [Object], chainType: 2, messageKeys: [Object] },
+    'BbQxe58qnIyO/qE0r1Yok5FyJ9FUECOjYqfCy3Lb0xka': { chainKey: [Object], chainType: 2, messageKeys: [Object] },
+    'BYqpx7U86keTwG5DUKSkI+MEmHwiiE4oN+exzbx+KrI4': { chainKey: [Object], chainType: 1, messageKeys: {} }
   },
   registrationId: 696358902,
   currentRatchet: {
     ephemeralKeyPair: {
-      pubKey: <Buffer 05 16 72 26 c9 88 d5 27 d8 57 a6 31 f6 90 2c eb 7b 62 c2 ed c3 70 38 a6 ac 34 7d 28 6c b7 16 57 41>,
-      privKey: <Buffer b0 20 4c ac a2 f7 ce b8 63 5d 34 d9 cb b3 d2 57 1b eb 99 24 87 2f de 85 52 37 fb 8c 84 b6 5c 79>
+      pubKey: <Buffer 05 8a a9 c7 b5 3c ea 47 93 c0 6e 43 50 a4 a4 23 e3 04 98 7c 22 88 4e 28 37 e7 b1 cd bc 7e 2a b2 38>,
+      privKey: <Buffer 68 f6 84 01 42 cc 02 3b 4f 0c 95 c5 36 e8 fb a8 40 76 89 61 a5 48 44 66 8f 3d 78 6d db 90 df 51>
     },
-    lastRemoteEphemeralKey: <Buffer 05 04 9f 72 04 84 71 5c c7 49 4d f8 be 83 e7 88 63 c2 ea cd a0 a4 ba e1 8d 50 48 2e 6c 6d c3 e8 1b>,
+    lastRemoteEphemeralKey: <Buffer 05 b4 31 7b 9f 2a 9c 8c 8e fe a1 34 af 56 28 93 91 72 27 d1 54 10 23 a3 62 a7 c2 cb 72 db d3 19 1a>,
     previousCounter: 1,
-    rootKey: <Buffer 60 35 89 f7 7f 13 43 9f 9f 3c 99 40 d0 d3 e3 6a f0 8e 83 fe b7 6d 99 48 db 5b 03 73 33 ec a3 12>
+    rootKey: <Buffer 50 94 9d 42 d6 82 2a 62 05 d3 41 ed 99 3d 01 85 5e 7f 4b b6 79 e0 34 cf dc 88 ae 9b a5 0f f1 ea>
   },
   indexInfo: {
-    baseKey: <Buffer 05 80 cb 90 f4 31 1d a7 9b 5e c8 02 5e da 7f 25 e1 54 9b c3 f9 ba 67 ab 1c ba 3f 3e 8d 23 c7 5d 1f>,
+    baseKey: <Buffer 05 f5 cc 72 7f 0b 14 a5 76 f2 a9 be df c2 31 32 f8 8d 64 80 e0 9e 9f 57 aa 19 b7 91 32 b5 4e 33 4a>,
     baseKeyType: 2,
     closed: -1,
-    used: 1756650021777,
-    created: 1756648087288,
+    used: 1756651203141,
+    created: 1756650027390,
     remoteIdentityKey: <Buffer 05 d5 12 2b 08 e3 20 d3 00 d0 d1 26 e7 72 5b 65 01 d1 2c be 81 df 07 36 64 d0 ca 55 94 68 7a fd 46>
   }
 }
@@ -275,9 +309,9 @@ messages.upsert received for instance 6860DCA0E2819 : {
       "key": {
         "remoteJid": "60173577321@s.whatsapp.net",
         "fromMe": true,
-        "id": "4BE2D85D8EC90863D7952EE2DC15D69F"
+        "id": "3CB48C92A14B598B1E6DF1C0FEE6F3F2"
       },
-      "messageTimestamp": 1756650027,
+      "messageTimestamp": 1756651209,
       "broadcast": false,
       "status": 2,
       "verifiedBizName": "Wabot Demo",
@@ -286,12 +320,12 @@ messages.upsert received for instance 6860DCA0E2819 : {
           "type": "PEER_DATA_OPERATION_REQUEST_RESPONSE_MESSAGE",
           "peerDataOperationRequestResponseMessage": {
             "peerDataOperationRequestType": "PLACEHOLDER_MESSAGE_RESEND",
-            "stanzaId": "3EB03684527BE92B7E8A72",
+            "stanzaId": "3EB043650F867BC044A6C2",
             "peerDataOperationResult": [
               {
                 "mediaUploadResult": "SUCCESS",
                 "placeholderMessageResendResponse": {
-                  "webMessageInfoBytes": "CjkKEzExNDE5NDY0MDgwMTk1M0BsaWQQARogOUI5N0NBQ0ExNTg3MDIzN0QwRTcyRDA4MkZDQ0U3RUQSKwoESHVodZoCIhoghL5nSgA3pKNYmJ5rOw0EF4Z0UqKTbWAttbkrtO9rvIYYn7TRxQYgBDCgtNHFBsICJgoaNjAxOTY5NTMzMDdAcy53aGF0c2FwcC5uZXQQABigtNHFBiAAwgIfChMxMTQxOTQ2NDA4MDE5NTNAbGlkEKC00cUGGAAgAIoDIIS+Z0oAN6SjWJieazsNBBeGdFKik21gLbW5K7Tva7yGiAQA"
+                  "webMessageInfoBytes": "CjkKEzExNDE5NDY0MDgwMTk1M0BsaWQQARogNTAzOTgzMUJFM0RBRTVDMEVFMTgzMDE4MzYzQjU1NTcSKQoCSHWaAiIaIKPPzCI3Ef6eN4CD9LcB/+wXtnQElbRHQsQJR8H/k32zGLy90cUGIATCAiYKGjYwMTk2OTUzMzA3QHMud2hhdHNhcHAubmV0EAAYvL3RxQYgAMICHwoTMTE0MTk0NjQwODAxOTUzQGxpZBC8vdHFBhgAIACKAyCjz8wiNxH+njeAg/S3Af/sF7Z0BJW0R0LECUfB/5N9s4gEAA=="
                 }
               }
             ]
@@ -303,16 +337,16 @@ messages.upsert received for instance 6860DCA0E2819 : {
   "type": "notify"
 }
 Skipping protocolMessage for instance 6860DCA0E2819: 17
-{"level":50,"time":"2025-08-31T14:20:27.428Z","pid":564699,"hostname":"wabotv3-sql","key":{"remoteJid":"114194640801953@lid","fromMe":true,"id":"9B97CACA15870237D0E72D082FCCE7ED"},"err":{"type":"PreKeyError","message":"Invalid PreKey ID","stack":"PreKeyError: Invalid PreKey ID\n    at SessionBuilder.initIncoming (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_builder.js:66:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:205:30)\n    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)","name":"PreKeyError"},"messageType":"pkmsg","sender":"80758756622573@lid","author":"80758756622573@lid","isSessionRecordError":false,"msg":"failed to decrypt message"}
+{"level":50,"time":"2025-08-31T14:40:09.914Z","pid":567355,"hostname":"wabotv3-sql","key":{"remoteJid":"114194640801953@lid","fromMe":true,"id":"5039831BE3DAE5C0EE183018363B5557"},"err":{"type":"PreKeyError","message":"Invalid PreKey ID","stack":"PreKeyError: Invalid PreKey ID\n    at SessionBuilder.initIncoming (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_builder.js:66:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async 80758756622573.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:205:30)\n    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)","name":"PreKeyError"},"messageType":"pkmsg","sender":"80758756622573@lid","author":"80758756622573@lid","isSessionRecordError":false,"msg":"failed to decrypt message"}
 messages.upsert received for instance 6860DCA0E2819 : {
   "messages": [
     {
       "key": {
         "remoteJid": "114194640801953@lid",
         "fromMe": true,
-        "id": "9B97CACA15870237D0E72D082FCCE7ED"
+        "id": "5039831BE3DAE5C0EE183018363B5557"
       },
-      "messageTimestamp": 1756650027,
+      "messageTimestamp": 1756651209,
       "pushName": "Wabot Demo",
       "broadcast": false,
       "status": 2,
@@ -327,7 +361,7 @@ messages.upsert received for instance 6860DCA0E2819 : {
 }
 [LID] Pattern 2: FromMe=true, LID remoteJid (need reverse lookup)
 Normalized @lid 114194640801953@lid to 60196953307@s.whatsapp.net
-Skipping duplicate message: 9B97CACA15870237D0E72D082FCCE7ED:stub
+Skipping duplicate message: 5039831BE3DAE5C0EE183018363B5557:stub
 [LID] No cached mapping, attempting reverse lookup for 114194640801953@lid
 [LidHandler] Attempting reverse lookup for LID: 114194640801953@lid
 [LID] Warning: Could not resolve LID 114194640801953@lid for fromMe message
@@ -337,66 +371,65 @@ messages.upsert received for instance 6860DCA0E2819 : {
       "key": {
         "remoteJid": "114194640801953@lid",
         "fromMe": true,
-        "id": "9B97CACA15870237D0E72D082FCCE7ED"
+        "id": "5039831BE3DAE5C0EE183018363B5557"
       },
       "message": {
-        "conversation": "Huhu",
+        "conversation": "Hu",
         "messageContextInfo": {
-          "messageSecret": "hL5nSgA3pKNYmJ5rOw0EF4Z0UqKTbWAttbkrtO9rvIY="
+          "messageSecret": "o8/MIjcR/p43gIP0twH/7Be2dASVtEdCxAlHwf+TfbM="
         }
       },
-      "messageTimestamp": "1756650015",
+      "messageTimestamp": "1756651196",
       "status": "READ",
-      "messageC2STimestamp": "1756650016",
       "userReceipt": [
         {
           "userJid": "60196953307@s.whatsapp.net",
           "receiptTimestamp": "0",
-          "readTimestamp": "1756650016",
+          "readTimestamp": "1756651196",
           "playedTimestamp": "0"
         },
         {
           "userJid": "114194640801953@lid",
-          "receiptTimestamp": "1756650016",
+          "receiptTimestamp": "1756651196",
           "readTimestamp": "0",
           "playedTimestamp": "0"
         }
       ],
-      "messageSecret": "hL5nSgA3pKNYmJ5rOw0EF4Z0UqKTbWAttbkrtO9rvIY=",
+      "messageSecret": "o8/MIjcR/p43gIP0twH/7Be2dASVtEdCxAlHwf+TfbM=",
       "isMentionedInStatus": false
     }
   ],
   "type": "notify",
-  "requestId": "3EB03684527BE92B7E8A72"
+  "requestId": "3EB043650F867BC044A6C2"
 }
 [LID] Pattern 2: FromMe=true, LID remoteJid (need reverse lookup)
 Normalized @lid 114194640801953@lid to 60196953307@s.whatsapp.net
-Skipping duplicate message: 9B97CACA15870237D0E72D082FCCE7ED:stub
+Skipping duplicate message: 5039831BE3DAE5C0EE183018363B5557:stub
 [LID] No cached mapping, attempting reverse lookup for 114194640801953@lid
 [LidHandler] Attempting reverse lookup for LID: 114194640801953@lid
 [LID] Warning: Could not resolve LID 114194640801953@lid for fromMe message
 Closing open session in favor of incoming prekey bundle
 Closing session: SessionEntry {
   _chains: {
-    'BanBiNWf+4l+RQBuFUGL0OfF+2bDWjk1VB/fxa7YX8oC': { chainKey: [Object], chainType: 2, messageKeys: {} },
-    'Bcig18so6jxptLnn+I93psfAtv3W7DW9FIFA0fTtFatb': { chainKey: [Object], chainType: 1, messageKeys: {} }
+    'Bevsp/TQjOv/hffAT+bGr+Vu5DZNZvSqmFJrZ3+t1iVX': { chainKey: [Object], chainType: 2, messageKeys: {} },
+    'BRir6WTg0InxkY3wNeGiZobEbx41gWWgB+yIL7bi5WQe': { chainKey: [Object], chainType: 1, messageKeys: {} }
   },
   registrationId: 696358902,
   currentRatchet: {
     ephemeralKeyPair: {
-      pubKey: <Buffer 05 c8 a0 d7 cb 28 ea 3c 69 b4 b9 e7 f8 8f 77 a6 c7 c0 b6 fd d6 ec 35 bd 14 81 40 d1 f4 ed 15 ab 5b>,
-      privKey: <Buffer d0 de a6 b5 ea e3 e1 dd f6 1b f9 90 9a 6b 39 46 a7 e4 92 11 66 a7 9f 34 56 86 f4 b1 10 11 55 6e>
+      pubKey: <Buffer 05 18 ab e9 64 e0 d0 89 f1 91 8d f0 35 e1 a2 66 86 c4 6f 1e 35 81 65 a0 07 ec 88 2f b6 e2 e5 64 1e>,
+      privKey: <Buffer 08 da 6f 90 3f f9 83 4f 4a 9f ba fd 8b 17 d9 5f a8 bd 5f b6 fc c6 98 a1 a9 f8 ed 5f 5c c3 83 4d>
     },
-    lastRemoteEphemeralKey: <Buffer 05 a9 c1 88 d5 9f fb 89 7e 45 00 6e 15 41 8b d0 e7 c5 fb 66 c3 5a 39 35 54 1f df c5 ae d8 5f ca 02>,
+    lastRemoteEphemeralKey: <Buffer 05 eb ec a7 f4 d0 8c eb ff 85 f7 c0 4f e6 c6 af e5 6e e4 36 4d 66 f4 aa 98 52 6b 67 7f ad d6 25 57>,
     previousCounter: 0,
-    rootKey: <Buffer f7 2d 71 36 c8 3c cb 3f 1b 33 0f 76 af 2e 55 ea 6d 91 4b 3a 0e 7e ee 47 3b 72 a3 75 60 72 57 3c>
+    rootKey: <Buffer 09 56 2c 82 60 d2 7c da 1e b3 4e 07 9e ec 5f f1 89 4c 28 71 4e bd 43 ab 93 67 4e e9 02 f4 e9 12>
   },
   indexInfo: {
-    baseKey: <Buffer 05 a2 98 5d a6 b9 41 c3 9c 79 5e 90 e9 40 6f d2 f4 6d 89 ef e2 be 94 b1 b6 db b0 c5 c9 22 9a 3c 73>,
+    baseKey: <Buffer 05 74 42 07 e4 37 e4 ae d0 c3 63 06 e4 05 cd 50 61 2a 78 3f 4a 0c bf 99 02 cd c8 b0 2e 3b e5 66 2c>,
     baseKeyType: 2,
     closed: -1,
-    used: 1756648087856,
-    created: 1756648087856,
+    used: 1756650168822,
+    created: 1756650168822,
     remoteIdentityKey: <Buffer 05 d5 12 2b 08 e3 20 d3 00 d0 d1 26 e7 72 5b 65 01 d1 2c be 81 df 07 36 64 d0 ca 55 94 68 7a fd 46>
   }
 }
@@ -406,15 +439,15 @@ messages.upsert received for instance 6860DCA0E2819 : {
       "key": {
         "remoteJid": "114194640801953@lid",
         "fromMe": true,
-        "id": "9B97CACA15870237D0E72D082FCCE7ED"
+        "id": "5039831BE3DAE5C0EE183018363B5557"
       },
-      "messageTimestamp": 1756650027,
+      "messageTimestamp": 1756651210,
       "pushName": "Wabot Demo",
       "broadcast": false,
       "status": 2,
       "verifiedBizName": "Wabot Demo",
       "message": {
-        "conversation": "Huhu"
+        "conversation": "Hu"
       }
     }
   ],
