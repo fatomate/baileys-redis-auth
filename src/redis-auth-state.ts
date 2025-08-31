@@ -1,4 +1,15 @@
 import { RedisAuthStateOptions } from './types'
+import { 
+  isLidFormat, 
+  isPhoneFormat, 
+  storeLidMapping, 
+  getLidMapping, 
+  getReverseLidMapping,
+  expandSessionKeys,
+  cleanupLidCache,
+  cleanupLidMappings,
+  getLidStats
+} from './lid-handler'
 
 // Per-session memory caches for better isolation
 const sessionCaches = new Map<string, Map<string, { data: any; timestamp: number }>>()
@@ -102,6 +113,9 @@ export const cleanupSession = async (
   // Clean up memory cache
   sessionCaches.delete(sessionId)
   
+  // Clean up LID cache
+  cleanupLidCache(sessionId)
+  
   // Clean up connection pool
   const pool = sessionPools.get(sessionId)
   if (pool) {
@@ -154,13 +168,18 @@ export const cleanupSession = async (
       
       // Delete all found keys in batches
       if (keysToDelete.length > 0) {
-        const pipeline = redis.multi()
+        const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
         keysToDelete.forEach(key => pipeline.del(key))
         await pipeline.exec()
         
         console.log(`Deleted ${keysToDelete.length} Redis keys for session: ${sessionId}`)
       } else {
         console.log(`No Redis keys found for session: ${sessionId}`)
+      }
+      
+      // Clean up LID mappings if enabled
+      if (redisOptions) {
+        await cleanupLidMappings(redis, sessionId, keyPrefix)
       }
       
     } catch (error) {
@@ -271,7 +290,7 @@ class BatchOperationManager {
     if (operations.length === 0) return
 
     try {
-      const pipeline = this.redis.multi()
+      const pipeline = this.redis.multi ? this.redis.multi() : this.redis.pipeline ? this.redis.pipeline() : this.redis.multi()
       const getOperations: Array<{ key: string; resolve: Function; reject: Function }> = []
 
       for (const op of operations) {
@@ -399,7 +418,10 @@ export const useRedisAuthState = async (
     poolSize = 10,
     memoryEfficient = true,
     enableCache = true,
-    cacheTTL = 30000
+    cacheTTL = 30000,
+    enableLidSupport = true,
+    lidMappingTTL = 604800,
+    lidCacheSize = 10000
   } = options
 
   // Get session-specific cache for better isolation
@@ -514,7 +536,7 @@ export const useRedisAuthState = async (
     // Batch fetch missing keys
     if (missingKeys.length > 0) {
       try {
-        const pipeline = redis.multi()
+        const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
         redisKeys.forEach(key => pipeline.get(key))
         const results = await pipeline.exec()
 
@@ -537,7 +559,7 @@ export const useRedisAuthState = async (
   // High-performance bulk write operation
   const bulkWrite = async (data: { [key: string]: any }): Promise<void> => {
     const clientInfo = detectRedisClient(redis)
-    const pipeline = redis.multi()
+    const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
     
     for (const [key, value] of Object.entries(data)) {
       const redisKey = getRedisKey(key)
@@ -597,11 +619,31 @@ export const useRedisAuthState = async (
       creds,
       keys: {
         get: async (type: string, ids: string[]) => {
-          const keyedIds = ids.map(id => `${type}-${id}`)
+          let expandedIds = ids
+          const originalToExpanded = new Map<string, string[]>()
+          
+          // Handle LID expansion for session keys if enabled
+          if (enableLidSupport && type === 'session') {
+            const expansionMap = await expandSessionKeys(redis, sessionId, ids.map(id => `${type}-${id}`), keyPrefix)
+            expandedIds = []
+            
+            for (const id of ids) {
+              const key = `${type}-${id}`
+              const expanded = expansionMap.get(key) || [key]
+              originalToExpanded.set(id, expanded.map(k => k.replace(`${type}-`, '')))
+              expandedIds.push(...expanded.map(k => k.replace(`${type}-`, '')))
+            }
+            
+            // Remove duplicates
+            expandedIds = [...new Set(expandedIds)]
+          }
+          
+          const keyedIds = expandedIds.map(id => `${type}-${id}`)
           const data = await bulkRead(keyedIds)
           
           const result: { [id: string]: any } = {}
           for (const id of ids) {
+            // Check original key first
             const key = `${type}-${id}`
             if (data[key] !== undefined) {
               let value = data[key]
@@ -617,6 +659,24 @@ export const useRedisAuthState = async (
               }
               
               result[id] = value
+            } else if (enableLidSupport && type === 'session' && originalToExpanded.has(id)) {
+              // Check expanded keys for session type
+              const expandedForId = originalToExpanded.get(id)!
+              for (const expandedId of expandedForId) {
+                const expandedKey = `${type}-${expandedId}`
+                if (data[expandedKey] !== undefined) {
+                  result[id] = data[expandedKey]
+                  console.log(`[Redis Auth] Found session under alternate format: ${id} -> ${expandedId}`)
+                  
+                  // Store the mapping for future use
+                  if (isLidFormat(id) && isPhoneFormat(expandedId)) {
+                    await storeLidMapping(redis, sessionId, id, expandedId, keyPrefix, lidMappingTTL)
+                  } else if (isPhoneFormat(id) && isLidFormat(expandedId)) {
+                    await storeLidMapping(redis, sessionId, expandedId, id, keyPrefix, lidMappingTTL)
+                  }
+                  break
+                }
+              }
             }
           }
           
@@ -625,13 +685,46 @@ export const useRedisAuthState = async (
         
         set: async (data: any) => {
           const writeOperations: { [key: string]: any } = {}
+          const lidMappingPromises: Promise<void>[] = []
           
           for (const category in data) {
             for (const id in data[category]) {
               const value = data[category][id]
               const key = `${category}-${id}`
               writeOperations[key] = value
+              
+              // For session keys with LID support, store under both formats
+              if (enableLidSupport && category === 'session' && value !== null && value !== undefined) {
+                if (isLidFormat(id)) {
+                  // Try to get phone mapping and store under both
+                  lidMappingPromises.push(
+                    getLidMapping(redis, sessionId, id, keyPrefix).then(phoneNumber => {
+                      if (phoneNumber) {
+                        const phoneKey = `${category}-${phoneNumber}`
+                        writeOperations[phoneKey] = value
+                        console.log(`[Redis Auth] Dual storing session: ${id} and ${phoneNumber}`)
+                      }
+                    })
+                  )
+                } else if (isPhoneFormat(id)) {
+                  // Try to get LID mapping and store under both
+                  lidMappingPromises.push(
+                    getReverseLidMapping(redis, sessionId, id, keyPrefix).then(lid => {
+                      if (lid) {
+                        const lidKey = `${category}-${lid}`
+                        writeOperations[lidKey] = value
+                        console.log(`[Redis Auth] Dual storing session: ${id} and ${lid}`)
+                      }
+                    })
+                  )
+                }
+              }
             }
+          }
+          
+          // Wait for all LID lookups to complete
+          if (lidMappingPromises.length > 0) {
+            await Promise.all(lidMappingPromises)
           }
 
           await bulkWrite(writeOperations)

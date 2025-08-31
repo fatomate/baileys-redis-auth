@@ -11,6 +11,7 @@ A **Redis-based authentication state manager** for the [Baileys](https://github.
 - **🗜️ Data Serialization** - Efficient JSON serialization with Buffer support
 - **🔒 Session Isolation** - Separate cache and connection pools per session
 - **⚡ Performance Optimized** - Designed for high-throughput applications
+- **🆕 @lid Format Support** - Automatic handling of WhatsApp's @lid format (v1.1.0+)
 
 ## Installation
 
@@ -110,6 +111,9 @@ async function advancedSetup() {
 | `enableCache` | `boolean` | `true` | Enable memory cache |
 | `cacheTTL` | `number` | `30000` | Cache TTL in milliseconds |
 | `memoryEfficient` | `boolean` | `true` | Memory optimization mode |
+| `enableLidSupport` | `boolean` | `true` | Enable @lid format support |
+| `lidMappingTTL` | `number` | `604800` | LID mapping TTL in seconds |
+| `lidCacheSize` | `number` | `10000` | Max LID mappings in cache |
 
 ## 🔧 Redis Client Compatibility
 
@@ -204,6 +208,58 @@ npm install ioredis
 # For both (library will auto-detect)
 npm install redis ioredis
 ```
+
+## 🆕 WhatsApp @lid Format Support (v1.1.0+)
+
+### What is @lid Format?
+
+WhatsApp uses two formats to identify users:
+- **Phone Format**: `60196953307@s.whatsapp.net`
+- **LID Format**: `114194640801953@lid`
+
+Both refer to the same account, but session keys stored under one format can't decrypt messages from the other, causing "Bad MAC" errors.
+
+### Automatic Handling
+
+The library automatically:
+- Detects @lid format in messages
+- Maps between @lid and phone formats
+- Stores session keys under both formats
+- Retrieves keys by checking both formats
+
+### Configuration
+
+```typescript
+const { state, saveCreds } = await useRedisAuthState({
+  redis: redisClient,
+  sessionId: 'my-session',
+  enableLidSupport: true,     // Enable @lid support (default: true)
+  lidMappingTTL: 604800,      // 7 days TTL for mappings
+  lidCacheSize: 10000         // Max cached mappings
+})
+```
+
+### Manual LID Management
+
+```typescript
+import { isLidFormat, storeLidMapping, getLidMapping } from '@baileys/redis-auth-state'
+
+// Check format type
+if (isLidFormat('114194640801953@lid')) {
+  // Get phone number from @lid
+  const phone = await getLidMapping(redis, sessionId, '114194640801953@lid')
+  
+  // Store a mapping
+  await storeLidMapping(
+    redis,
+    sessionId,
+    '114194640801953@lid',
+    '60196953307@s.whatsapp.net'
+  )
+}
+```
+
+For detailed documentation, see [LID Format Support Guide](docs/lid-format-support.md).
 
 ## 🏗️ Multiple Sessions
 

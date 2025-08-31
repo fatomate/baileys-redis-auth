@@ -65,4 +65,23 @@ export interface RedisAuthStateOptions {
    * @default 30000 (30 seconds)
    */
   cacheTTL?: number
+  
+  /**
+   * Enable support for WhatsApp @lid format
+   * Automatically handles mapping between @lid and phone number formats
+   * @default true
+   */
+  enableLidSupport?: boolean
+  
+  /**
+   * TTL for LID to phone number mappings in seconds
+   * @default 604800 (7 days)
+   */
+  lidMappingTTL?: number
+  
+  /**
+   * Maximum number of LID mappings to cache in memory per session
+   * @default 10000
+   */
+  lidCacheSize?: number
 } 
