@@ -113,7 +113,10 @@ export async function storeLidMapping(
   lid: string,
   phoneNumber: string,
   keyPrefix: string = 'baileys:session:',
-  ttl?: number
+  ttl?: number,
+  options?: {
+    force?: boolean
+  }
 ): Promise<void> {
   try {
     const normalizedLid = normalizeMappingKey(lid)
@@ -138,12 +141,25 @@ export async function storeLidMapping(
     const cachedLidMap = lidCache.get(sessionId)
     const cachedPhoneMap = phoneCache.get(sessionId)
 
+    const forceReplace = options?.force ?? false
+
     if (existingNormalizedPhone && existingNormalizedPhone !== normalizedPhone) {
+      if (!forceReplace) {
+        console.warn('[LidHandler] Conflict detected, keeping existing phone mapping for LID', {
+          sessionId,
+          lid: normalizedLid,
+          attemptedPhone: normalizedPhone,
+          existingPhone: existingNormalizedPhone
+        })
+        return
+      }
+
       console.warn('[LidHandler] Replacing phone mapping for LID', {
         sessionId,
         lid: normalizedLid,
         newPhone: normalizedPhone,
-        previousPhone: existingNormalizedPhone
+        previousPhone: existingNormalizedPhone,
+        forced: true
       })
       await redis.del(lidKey)
       await redis.del(`${keyPrefix}lid:reverse:${sessionId}:${existingNormalizedPhone}`)
@@ -152,11 +168,22 @@ export async function storeLidMapping(
     }
 
     if (existingNormalizedLid && existingNormalizedLid !== normalizedLid) {
+      if (!forceReplace) {
+        console.warn('[LidHandler] Conflict detected, keeping existing LID mapping for phone', {
+          sessionId,
+          phoneNumber: normalizedPhone,
+          attemptedLid: normalizedLid,
+          existingLid: existingNormalizedLid
+        })
+        return
+      }
+
       console.warn('[LidHandler] Replacing LID mapping for phone', {
         sessionId,
         phoneNumber: normalizedPhone,
         newLid: normalizedLid,
-        previousLid: existingNormalizedLid
+        previousLid: existingNormalizedLid,
+        forced: true
       })
       await redis.del(`${keyPrefix}lid:${sessionId}:${existingNormalizedLid}`)
       await redis.del(phoneKey)
@@ -629,7 +656,9 @@ export const registerLidMapping = async (
     }
 
     // Store the bidirectional mapping (refreshes TTL when mapping matches)
-    await storeLidMapping(redis, sessionId, normalizedLid, normalizedPhone, keyPrefix, ttl)
+    await storeLidMapping(redis, sessionId, normalizedLid, normalizedPhone, keyPrefix, ttl, {
+      force: true
+    })
 
     console.log(`[registerLidMapping] Successfully registered mapping: ${normalizedLid} <-> ${normalizedPhone} for session ${sessionId}`)
     return true
