@@ -471,11 +471,97 @@ export const useRedisAuthState = async (
     batchManager = new BatchOperationManager(redis, batchSize)
   }
 
-  const stripDeviceSuffix = (jid: string): string => jid.replace(/:\d+$/, '')
+  const stripDeviceSuffix = (jid: string): string => jid.replace(/([:.]\d+)$/, '')
+
+  const parseIdentifierParts = (value: string): { base: string | null; domain: string | null; device: string | null } => {
+    if (!value) {
+      return { base: null, domain: null, device: null }
+    }
+
+    let localPart = value
+    let domain: string | null = null
+    let device: string | null = null
+
+    const atIndex = value.indexOf('@')
+    if (atIndex !== -1) {
+      localPart = value.slice(0, atIndex)
+      const domainPart = value.slice(atIndex + 1)
+      const domainDeviceMatch = domainPart.match(/^(.*?)([:.])(\d+)$/)
+      if (domainDeviceMatch) {
+        domain = domainDeviceMatch[1] || null
+        device = domainDeviceMatch[3]
+      } else {
+        domain = domainPart || null
+      }
+    }
+
+    const localDeviceMatch = localPart.match(/^(.*?)([:.])(\d+)$/)
+    if (localDeviceMatch) {
+      localPart = localDeviceMatch[1]
+      if (!device) {
+        device = localDeviceMatch[3]
+      }
+    }
+
+    const trimmedLocal = localPart?.trim() || ''
+
+    if (!trimmedLocal) {
+      return { base: null, domain, device }
+    }
+
+    return {
+      base: trimmedLocal,
+      domain: domain?.trim() || null,
+      device: device || null
+    }
+  }
+
+  const resolveLookupCandidates = (value: string): Array<{ format: 'lid' | 'phone'; identifier: string }> => {
+    const candidates: Array<{ format: 'lid' | 'phone'; identifier: string }> = []
+
+    const addCandidate = (format: 'lid' | 'phone', identifier: string): void => {
+      if (!identifier) {
+        return
+      }
+      if (!candidates.some(entry => entry.format === format && entry.identifier === identifier)) {
+        candidates.push({ format, identifier })
+      }
+    }
+
+    if (!value) {
+      return candidates
+    }
+
+    if (isLidFormat(value)) {
+      addCandidate('lid', value)
+    }
+
+    if (isPhoneFormat(value)) {
+      addCandidate('phone', value)
+    }
+
+    if (!value.includes('@') && /^\d+$/.test(value)) {
+      addCandidate('lid', `${value}@lid`)
+      addCandidate('phone', `${value}@s.whatsapp.net`)
+    }
+
+    return candidates
+  }
 
   const expandKeyVariants = (value: string): Set<string> => {
     const variants = new Set<string>()
-    const queue: string[] = [value]
+    const queued = new Set<string>()
+    const queue: string[] = []
+
+    const enqueue = (candidate: string | null | undefined): void => {
+      if (!candidate) return
+      const normalized = candidate.trim()
+      if (!normalized || queued.has(normalized)) return
+      queued.add(normalized)
+      queue.push(normalized)
+    }
+
+    enqueue(value)
 
     while (queue.length > 0) {
       const current = queue.pop()!
@@ -484,30 +570,42 @@ export const useRedisAuthState = async (
       }
       variants.add(current)
 
-      const deviceMatch = current.match(/^(.*?)(:\d+)$/)
-      if (deviceMatch) {
-        queue.push(deviceMatch[1])
-      } else if (!current.includes(':')) {
-        queue.push(`${current}:0`)
+      const { base, domain, device } = parseIdentifierParts(current)
+      if (!base) {
+        continue
       }
 
-      const atIndex = current.indexOf('@')
-      if (atIndex !== -1) {
-        const withoutDomain = current.slice(0, atIndex)
-        const domain = current.slice(atIndex + 1)
-        if (withoutDomain) {
-          queue.push(withoutDomain)
-        }
+      enqueue(base)
 
-        const colonIndex = withoutDomain.indexOf(':')
-        if (colonIndex !== -1) {
-          const baseUser = withoutDomain.slice(0, colonIndex)
-          if (baseUser) {
-            queue.push(`${baseUser}@${domain}`)
-            queue.push(`${baseUser}:0@${domain}`)
-          }
-        } else {
-          queue.push(`${withoutDomain}:0@${domain}`)
+      const deviceOptions = new Set<string>()
+      if (device) {
+        deviceOptions.add(device)
+      }
+      deviceOptions.add('0')
+
+      const domainOptions = new Set<string>()
+      if (domain) {
+        domainOptions.add(domain)
+        if (domain === 'lid') {
+          domainOptions.add('s.whatsapp.net')
+        } else if (domain === 's.whatsapp.net' || domain === 'c.us' || domain === 'g.us') {
+          domainOptions.add('lid')
+        }
+      } else if (/^\d+$/.test(base)) {
+        domainOptions.add('s.whatsapp.net')
+        domainOptions.add('lid')
+      }
+
+      for (const dev of deviceOptions) {
+        enqueue(`${base}:${dev}`)
+        enqueue(`${base}.${dev}`)
+      }
+
+      for (const dom of domainOptions) {
+        enqueue(`${base}@${dom}`)
+        for (const dev of deviceOptions) {
+          enqueue(`${base}:${dev}@${dom}`)
+          enqueue(`${base}.${dev}@${dom}`)
         }
       }
     }
@@ -738,32 +836,40 @@ export const useRedisAuthState = async (
               }
 
               const strippedId = stripDeviceSuffix(id)
+              const lookupCandidates = resolveLookupCandidates(strippedId)
 
-              if (isLidFormat(strippedId)) {
-                const phone = await getLidMapping(redis, sessionId, strippedId, keyPrefix)
-                if (phone) {
-                  for (const variant of expandKeyVariants(phone)) {
-                    expanded.add(variant)
-                  }
-                  log('Session lookup mapping (lid→phone)', {
-                    requested: id,
-                    strippedId,
-                    phone,
-                    variants: Array.from(expanded)
-                  })
+              for (const candidate of lookupCandidates) {
+                const candidateId = stripDeviceSuffix(candidate.identifier)
+                for (const variant of expandKeyVariants(candidateId)) {
+                  expanded.add(variant)
                 }
-              } else if (isPhoneFormat(strippedId)) {
-                const lid = await getReverseLidMapping(redis, sessionId, strippedId, keyPrefix)
-                if (lid) {
-                  for (const variant of expandKeyVariants(lid)) {
-                    expanded.add(variant)
+
+                if (candidate.format === 'lid') {
+                  const phone = await getLidMapping(redis, sessionId, candidateId, keyPrefix)
+                  if (phone) {
+                    for (const variant of expandKeyVariants(phone)) {
+                      expanded.add(variant)
+                    }
+                    log('Session lookup mapping (lid→phone)', {
+                      requested: id,
+                      strippedId: candidateId,
+                      phone,
+                      variants: Array.from(expanded)
+                    })
                   }
-                  log('Session lookup mapping (phone→lid)', {
-                    requested: id,
-                    strippedId,
-                    lid,
-                    variants: Array.from(expanded)
-                  })
+                } else if (candidate.format === 'phone') {
+                  const lid = await getReverseLidMapping(redis, sessionId, candidateId, keyPrefix)
+                  if (lid) {
+                    for (const variant of expandKeyVariants(lid)) {
+                      expanded.add(variant)
+                    }
+                    log('Session lookup mapping (phone→lid)', {
+                      requested: id,
+                      strippedId: candidateId,
+                      lid,
+                      variants: Array.from(expanded)
+                    })
+                  }
                 }
               }
 
@@ -825,13 +931,24 @@ export const useRedisAuthState = async (
 
               const cleanedTarget = stripDeviceSuffix(id)
               const cleanedSource = stripDeviceSuffix(alternateSource)
+              const targetCandidates = resolveLookupCandidates(cleanedTarget)
+              const sourceCandidates = resolveLookupCandidates(cleanedSource)
 
-              if (isLidFormat(cleanedTarget) && isPhoneFormat(cleanedSource)) {
-                storeLidMapping(redis, sessionId, cleanedTarget, cleanedSource, keyPrefix, lidMappingTTL).catch(error => {
+              const targetLid = targetCandidates.find(entry => entry.format === 'lid')?.identifier
+              const targetPhone = targetCandidates.find(entry => entry.format === 'phone')?.identifier
+              const sourceLid = sourceCandidates.find(entry => entry.format === 'lid')?.identifier
+              const sourcePhone = sourceCandidates.find(entry => entry.format === 'phone')?.identifier
+
+              if (targetLid && sourcePhone) {
+                const safeLid = stripDeviceSuffix(targetLid)
+                const safePhone = stripDeviceSuffix(sourcePhone)
+                storeLidMapping(redis, sessionId, safeLid, safePhone, keyPrefix, lidMappingTTL).catch(error => {
                   console.error('[Redis Auth] Failed to refresh LID mapping during lazy copy:', error)
                 })
-              } else if (isPhoneFormat(cleanedTarget) && isLidFormat(cleanedSource)) {
-                storeLidMapping(redis, sessionId, cleanedSource, cleanedTarget, keyPrefix, lidMappingTTL).catch(error => {
+              } else if (targetPhone && sourceLid) {
+                const safeLid = stripDeviceSuffix(sourceLid)
+                const safePhone = stripDeviceSuffix(targetPhone)
+                storeLidMapping(redis, sessionId, safeLid, safePhone, keyPrefix, lidMappingTTL).catch(error => {
                   console.error('[Redis Auth] Failed to refresh LID mapping during lazy copy:', error)
                 })
               }
@@ -865,53 +982,67 @@ export const useRedisAuthState = async (
               }
 
               const cleanedId = stripDeviceSuffix(id)
+              const lookupCandidates = resolveLookupCandidates(cleanedId)
+              const handledCandidates = new Set<string>()
 
-              if (isLidFormat(cleanedId)) {
-                mappingLookups.push(
-                  (async () => {
-                    const phone = await getLidMapping(redis, sessionId, cleanedId, keyPrefix)
-                    if (phone) {
-                      await storeLidMapping(redis, sessionId, cleanedId, phone, keyPrefix, lidMappingTTL)
-                      log('Opportunistic dual storage mapping', {
-                        base: cleanedId,
-                        mapped: phone,
+              for (const candidate of lookupCandidates) {
+                const candidateId = stripDeviceSuffix(candidate.identifier)
+                if (!candidateId) {
+                  continue
+                }
+                const dedupeKey = `${candidate.format}:${candidateId}`
+                if (handledCandidates.has(dedupeKey)) {
+                  continue
+                }
+                handledCandidates.add(dedupeKey)
+
+                if (candidate.format === 'lid') {
+                  mappingLookups.push(
+                    (async () => {
+                      const phone = await getLidMapping(redis, sessionId, candidateId, keyPrefix)
+                      if (phone) {
+                        await storeLidMapping(redis, sessionId, candidateId, phone, keyPrefix, lidMappingTTL)
+                        log('Opportunistic dual storage mapping', {
+                          base: candidateId,
+                          mapped: phone,
+                          category
+                        })
+                      }
+                      if (!phone || !enableOpportunisticDualStorage) {
+                        return
+                      }
+                      queueVariantOperations(opportunisticWrites, category, phone, value)
+                      log('Queued opportunistic dual storage write', {
+                        base: candidateId,
+                        alternate: phone,
                         category
                       })
-                    }
-                    if (!phone || !enableOpportunisticDualStorage) {
-                      return
-                    }
-                    queueVariantOperations(opportunisticWrites, category, phone, value)
-                    log('Queued opportunistic dual storage write', {
-                      base: cleanedId,
-                      alternate: phone,
-                      category
-                    })
-                  })()
-                )
-              } else if (isPhoneFormat(cleanedId)) {
-                mappingLookups.push(
-                  (async () => {
-                    const lid = await getReverseLidMapping(redis, sessionId, cleanedId, keyPrefix)
-                    if (lid) {
-                      await storeLidMapping(redis, sessionId, lid, cleanedId, keyPrefix, lidMappingTTL)
-                      log('Opportunistic dual storage mapping', {
-                        base: cleanedId,
-                        mapped: lid,
+                    })()
+                  )
+                } else if (candidate.format === 'phone') {
+                  mappingLookups.push(
+                    (async () => {
+                      const lid = await getReverseLidMapping(redis, sessionId, candidateId, keyPrefix)
+                      if (lid) {
+                        await storeLidMapping(redis, sessionId, lid, candidateId, keyPrefix, lidMappingTTL)
+                        log('Opportunistic dual storage mapping', {
+                          base: candidateId,
+                          mapped: lid,
+                          category
+                        })
+                      }
+                      if (!lid || !enableOpportunisticDualStorage) {
+                        return
+                      }
+                      queueVariantOperations(opportunisticWrites, category, lid, value)
+                      log('Queued opportunistic dual storage write', {
+                        base: candidateId,
+                        alternate: lid,
                         category
                       })
-                    }
-                    if (!lid || !enableOpportunisticDualStorage) {
-                      return
-                    }
-                    queueVariantOperations(opportunisticWrites, category, lid, value)
-                    log('Queued opportunistic dual storage write', {
-                      base: cleanedId,
-                      alternate: lid,
-                      category
-                    })
-                  })()
-                )
+                    })()
+                  )
+                }
               }
             }
           }

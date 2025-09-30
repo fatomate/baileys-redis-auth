@@ -1,0 +1,539 @@
+[RedisAuth] Session lookup variants prepared {
+  requested: '60196953307.79',
+  variants: [ '60196953307.79', '60196953307.79:0' ]
+}
+[RedisAuth] Executing bulk write { totalOperations: 2, opportunisticCount: 0 }
+{"level":20,"time":"2025-09-30T06:33:47.194Z","pid":3783848,"hostname":"wabotv3-sql","attrs":{"id":"3EB03AD30D2A0FBDF9F411","to":"60196953307:79@s.whatsapp.net","type":"inactive"},"messageIds":["3EB03AD30D2A0FBDF9F411"],"msg":"sending receipt for messages"}
+{"level":20,"time":"2025-09-30T06:33:47.195Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"message","attrs":{"from":"60196953307:79@s.whatsapp.net","type":"text","id":"3EB03AD30D2A0FBDF9F411","notify":"Firdaus Azizi","sender_lid":"114194640801953@lid","t":"1759214027"}},"sent":{"id":"3EB03AD30D2A0FBDF9F411","to":"60196953307:79@s.whatsapp.net","class":"message","type":"text"},"msg":"sent ack"}
+messages.upsert received for 6719BC2A93532: {
+  "messages": [
+    {
+      "key": {
+        "remoteJid": "60196953307@s.whatsapp.net",
+        "fromMe": false,
+        "id": "3EB03AD30D2A0FBDF9F411",
+        "senderLid": "114194640801953@lid",
+        "senderPn": "60196953307@s.whatsapp.net"
+      },
+      "messageTimestamp": 1759214027,
+      "pushName": "Firdaus Azizi",
+      "broadcast": false,
+      "message": {
+        "conversation": "botcheck",
+        "messageContextInfo": {
+          "deviceListMetadata": {
+            "senderKeyHash": "jNmFLqXLxviC8g==",
+            "senderTimestamp": "1758603854",
+            "senderAccountType": "E2EE",
+            "receiverAccountType": "E2EE",
+            "recipientKeyHash": "1zsJSetStdHJBw==",
+            "recipientTimestamp": "1758580803"
+          },
+          "deviceListMetadataVersion": 2,
+          "messageSecret": "slXkhJVU72ntzY/YDfl4jpSoJDwskuFVSZK51nVsBGM=",
+          "limitSharingV2": {
+            "sharingLimited": false,
+            "trigger": "UNKNOWN",
+            "limitSharingSettingTimestamp": "0",
+            "initiatedByMe": false
+          }
+        }
+      }
+    }
+  ],
+  "type": "notify"
+}
+[RedisAuth] Session lookup variants prepared {
+  requested: '60196953307.0',
+  variants: [ '60196953307.0', '60196953307.0:0' ]
+}
+[RedisAuth] Session lookup variants prepared {
+  requested: '60194447054.0',
+  variants: [ '60194447054.0', '60194447054.0:0' ]
+}
+[RedisAuth] Session lookup variants prepared {
+  requested: '60196953307.77',
+  variants: [ '60196953307.77', '60196953307.77:0' ]
+}
+{"level":20,"time":"2025-09-30T06:33:47.467Z","pid":3783848,"hostname":"wabotv3-sql","msgId":"3EB0C99CB3CFF35647ACE4","msg":"sending message to 4 devices"}
+[RedisAuth] Executing bulk write { totalOperations: 8, opportunisticCount: 0 }
+messages.upsert received for 6719BC2A93532: {
+  "messages": [
+    {
+      "key": {
+        "remoteJid": "60196953307@s.whatsapp.net",
+        "fromMe": true,
+        "id": "3EB0C99CB3CFF35647ACE4"
+      },
+      "message": {
+        "extendedTextMessage": {
+          "text": "_chatbot connection is active_"
+        }
+      },
+      "messageTimestamp": "1759214027",
+      "status": "PENDING"
+    }
+  ],
+  "type": "append"
+}
+{"level":20,"time":"2025-09-30T06:33:47.972Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60196953307:77@s.whatsapp.net","id":"3EB0C99CB3CFF35647ACE4","t":"1759214027"}},"sent":{"id":"3EB0C99CB3CFF35647ACE4","to":"60196953307:77@s.whatsapp.net","class":"receipt"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:33:48.017Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60196953307:79@s.whatsapp.net","id":"3EB0C99CB3CFF35647ACE4","t":"1759214027"}},"sent":{"id":"3EB0C99CB3CFF35647ACE4","to":"60196953307:79@s.whatsapp.net","class":"receipt"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:33:48.188Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60196953307:79@s.whatsapp.net","type":"read","id":"3EB0C99CB3CFF35647ACE4","t":"1759214028"}},"sent":{"id":"3EB0C99CB3CFF35647ACE4","to":"60196953307:79@s.whatsapp.net","class":"receipt","type":"read"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:33:49.436Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60196953307@s.whatsapp.net","id":"3EB0C99CB3CFF35647ACE4","t":"1759214029"}},"sent":{"id":"3EB0C99CB3CFF35647ACE4","to":"60196953307@s.whatsapp.net","class":"receipt"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:18.532Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"93866912915587@lid","type":"read","id":"3EB03AD30D2A0FBDF9F411","recipient":"114194640801953@lid","t":"1759214058"}},"sent":{"id":"3EB03AD30D2A0FBDF9F411","to":"93866912915587@lid","class":"receipt","recipient":"114194640801953@lid","type":"read"},"msg":"sent ack"}
+[RedisAuth] Session lookup variants prepared {
+  requested: '114194640801953.0',
+  variants: [ '114194640801953.0', '114194640801953.0:0' ]
+}
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:250:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:147:29)
+    at async 114194640801953.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)
+    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)
+{"level":50,"time":"2025-09-30T06:34:22.222Z","pid":3783848,"hostname":"wabotv3-sql","key":{"remoteJid":"114194640801953@lid","fromMe":true,"id":"AC29241293F8DD795BA20356C3DC9BAE","senderLid":"93866912915587@lid","senderPn":"60194447054@s.whatsapp.net"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:161:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async 114194640801953.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)\n    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+messages.upsert received for 6719BC2A93532: {
+  "messages": [
+    {
+      "key": {
+        "remoteJid": "114194640801953@lid",
+        "fromMe": true,
+        "id": "AC29241293F8DD795BA20356C3DC9BAE",
+        "senderLid": "93866912915587@lid",
+        "senderPn": "60194447054@s.whatsapp.net"
+      },
+      "messageTimestamp": 1759214062,
+      "pushName": "Wabot Ai Tester",
+      "broadcast": false,
+      "status": 2,
+      "messageStubType": 2,
+      "messageStubParameters": [
+        "No matching sessions found for message"
+      ]
+    }
+  ],
+  "type": "notify"
+}
+{"level":20,"time":"2025-09-30T06:34:22.223Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"message","attrs":{"from":"93866912915587@lid","type":"text","id":"AC29241293F8DD795BA20356C3DC9BAE","recipient":"114194640801953@lid","notify":"Wabot Ai Tester","peer_recipient_pn":"60196953307@s.whatsapp.net","t":"1759214062"}},"sent":{"id":"AC29241293F8DD795BA20356C3DC9BAE","to":"93866912915587@lid","class":"message","recipient":"114194640801953@lid","type":"text"},"msg":"sent ack"}
+Emitted new_message_1 for message: AC29241293F8DD795BA20356C3DC9BAE (type: text, media: pending)
+{"level":20,"time":"2025-09-30T06:34:22.504Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"114194640801953:77@lid","id":"AC29241293F8DD795BA20356C3DC9BAE","t":"1759214062"}},"sent":{"id":"AC29241293F8DD795BA20356C3DC9BAE","to":"114194640801953:77@lid","class":"receipt"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:22.565Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"114194640801953:79@lid","id":"AC29241293F8DD795BA20356C3DC9BAE","t":"1759214062"}},"sent":{"id":"AC29241293F8DD795BA20356C3DC9BAE","to":"114194640801953:79@lid","class":"receipt"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:22.808Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60196953307:79@s.whatsapp.net","type":"read","id":"AC29241293F8DD795BA20356C3DC9BAE","t":"1759214062"}},"sent":{"id":"AC29241293F8DD795BA20356C3DC9BAE","to":"60196953307:79@s.whatsapp.net","class":"receipt","type":"read"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:23.641Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60196953307@s.whatsapp.net","id":"AC29241293F8DD795BA20356C3DC9BAE","t":"1759214063"}},"sent":{"id":"AC29241293F8DD795BA20356C3DC9BAE","to":"60196953307@s.whatsapp.net","class":"receipt"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:27.225Z","pid":3783848,"hostname":"wabotv3-sql","msgId":"3EB0EB660D1B42F81C7548","msg":"sending message to 1 devices"}
+[RedisAuth] Executing bulk write { totalOperations: 2, opportunisticCount: 0 }
+{"level":20,"time":"2025-09-30T06:34:27.226Z","pid":3783848,"hostname":"wabotv3-sql","msg":"sendRetryRequest: requested placeholder resend for message 3EB0EB660D1B42F81C7548"}
+{"level":30,"time":"2025-09-30T06:34:27.227Z","pid":3783848,"hostname":"wabotv3-sql","msgAttrs":{"from":"93866912915587@lid","type":"text","id":"AC29241293F8DD795BA20356C3DC9BAE","recipient":"114194640801953@lid","notify":"Wabot Ai Tester","peer_recipient_pn":"60196953307@s.whatsapp.net","t":"1759214062"},"retryCount":1,"msg":"sent retry receipt"}
+{"level":20,"time":"2025-09-30T06:34:27.416Z","pid":3783848,"hostname":"wabotv3-sql","unhandled":true,"msgId":"AC29241293F8DD795BA20356C3DC9BAE","fromMe":false,"frame":{"tag":"ack","attrs":{"from":"93866912915587@lid","class":"receipt","type":"retry","id":"AC29241293F8DD795BA20356C3DC9BAE","recipient":"114194640801953@lid"}},"msg":"communication recv"}
+{"level":20,"time":"2025-09-30T06:34:27.836Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60194447054@s.whatsapp.net","type":"peer_msg","id":"3EB0EB660D1B42F81C7548","t":"1759214067"}},"sent":{"id":"3EB0EB660D1B42F81C7548","to":"60194447054@s.whatsapp.net","class":"receipt","type":"peer_msg"},"msg":"sent ack"}
+[RedisAuth] Executing bulk write { totalOperations: 2, opportunisticCount: 0 }
+{"level":20,"time":"2025-09-30T06:34:27.841Z","pid":3783848,"hostname":"wabotv3-sql","attrs":{"id":"AC39D33DE46077C460C530BD8EFACAA8","to":"60194447054@s.whatsapp.net","type":"peer_msg"},"messageIds":["AC39D33DE46077C460C530BD8EFACAA8"],"msg":"sending receipt for messages"}
+{"level":20,"time":"2025-09-30T06:34:27.841Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"message","attrs":{"from":"60194447054@s.whatsapp.net","type":"text","id":"AC39D33DE46077C460C530BD8EFACAA8","category":"peer","t":"1759214067"}},"sent":{"id":"AC39D33DE46077C460C530BD8EFACAA8","to":"60194447054@s.whatsapp.net","class":"message","type":"text"},"msg":"sent ack"}
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:250:16)
+    at async SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:147:29)
+    at async 114194640801953.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)
+    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)
+{"level":50,"time":"2025-09-30T06:34:27.844Z","pid":3783848,"hostname":"wabotv3-sql","key":{"remoteJid":"114194640801953@lid","fromMe":true,"id":"AC29241293F8DD795BA20356C3DC9BAE","senderLid":"93866912915587@lid","senderPn":"60194447054@s.whatsapp.net"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:161:15)\n    at async 114194640801953.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)\n    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+{"level":20,"time":"2025-09-30T06:34:27.844Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"message","attrs":{"from":"93866912915587@lid","type":"text","id":"AC29241293F8DD795BA20356C3DC9BAE","notify":"Wabot Ai Tester","recipient":"114194640801953@lid","peer_recipient_pn":"60196953307@s.whatsapp.net","t":"1759214067"}},"sent":{"id":"AC29241293F8DD795BA20356C3DC9BAE","to":"93866912915587@lid","class":"message","recipient":"114194640801953@lid","type":"text"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:27.845Z","pid":3783848,"hostname":"wabotv3-sql","msg":"updated pushName"}
+[RedisAuth] Executing bulk write { totalOperations: 2, opportunisticCount: 0 }
+messages.upsert received for 6719BC2A93532: {
+  "messages": [
+    {
+      "key": {
+        "remoteJid": "60194447054@s.whatsapp.net",
+        "fromMe": true,
+        "id": "AC39D33DE46077C460C530BD8EFACAA8",
+        "senderLid": "93866912915587@lid",
+        "senderPn": "60194447054@s.whatsapp.net"
+      },
+      "messageTimestamp": 1759214067,
+      "broadcast": false,
+      "status": 2,
+      "message": {
+        "protocolMessage": {
+          "type": "PEER_DATA_OPERATION_REQUEST_RESPONSE_MESSAGE",
+          "peerDataOperationRequestResponseMessage": {
+            "peerDataOperationRequestType": "PLACEHOLDER_MESSAGE_RESEND",
+            "stanzaId": "3EB0EB660D1B42F81C7548",
+            "peerDataOperationResult": [
+              {
+                "mediaUploadResult": "SUCCESS",
+                "placeholderMessageResendResponse": {
+                  "webMessageInfoBytes": "CkAKGjYwMTk2OTUzMzA3QHMud2hhdHNhcHAubmV0EAEaIEFDMjkyNDEyOTNGOERENzk1QkEyMDM1NkMzREM5QkFFEikKAkh1mgIiGiB/jEq9jqmKgSOkYYKyo/tzwk47IsV3qVEjXHEIl/AnvBjt8+3GBiAEMO7z7cYGwgIqCho2MDE5Njk1MzMwN0BzLndoYXRzYXBwLm5ldBDu8+3GBhju8+3GBiAAigMgf4xKvY6pioEjpGGCsqP7c8JOOyLFd6lRI1xxCJfwJ7yaAxo2MDE5NDQ0NzA1NEBzLndoYXRzYXBwLm5ldIgEAA=="
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "remoteJid": "114194640801953@lid",
+        "fromMe": true,
+        "id": "AC29241293F8DD795BA20356C3DC9BAE",
+        "senderLid": "93866912915587@lid",
+        "senderPn": "60194447054@s.whatsapp.net"
+      },
+      "messageTimestamp": 1759214067,
+      "pushName": "Wabot Ai Tester",
+      "broadcast": false,
+      "status": 2,
+      "messageStubType": 2,
+      "messageStubParameters": [
+        "No matching sessions found for message"
+      ]
+    }
+  ],
+  "type": "notify"
+}
+{"level":30,"time":"2025-09-30T06:34:27.846Z","pid":3783848,"hostname":"wabotv3-sql","msgAttrs":{"from":"93866912915587@lid","type":"text","id":"AC29241293F8DD795BA20356C3DC9BAE","notify":"Wabot Ai Tester","recipient":"114194640801953@lid","peer_recipient_pn":"60196953307@s.whatsapp.net","t":"1759214067"},"retryCount":2,"msg":"sent retry receipt"}
+{"level":20,"time":"2025-09-30T06:34:28.031Z","pid":3783848,"hostname":"wabotv3-sql","unhandled":true,"msgId":"AC39D33DE46077C460C530BD8EFACAA8","fromMe":false,"frame":{"tag":"ack","attrs":{"from":"60194447054@s.whatsapp.net","class":"receipt","type":"peer_msg","id":"AC39D33DE46077C460C530BD8EFACAA8"}},"msg":"communication recv"}
+{"level":20,"time":"2025-09-30T06:34:28.035Z","pid":3783848,"hostname":"wabotv3-sql","unhandled":true,"msgId":"AC29241293F8DD795BA20356C3DC9BAE","fromMe":false,"frame":{"tag":"ack","attrs":{"from":"93866912915587@lid","class":"receipt","type":"retry","id":"AC29241293F8DD795BA20356C3DC9BAE","recipient":"114194640801953@lid"}},"msg":"communication recv"}
+messages.upsert received for 6719BC2A93532: {
+  "messages": [
+    {
+      "key": {
+        "remoteJid": "60196953307@s.whatsapp.net",
+        "fromMe": true,
+        "id": "AC29241293F8DD795BA20356C3DC9BAE"
+      },
+      "message": {
+        "conversation": "Hu",
+        "messageContextInfo": {
+          "messageSecret": "f4xKvY6pioEjpGGCsqP7c8JOOyLFd6lRI1xxCJfwJ7w="
+        }
+      },
+      "messageTimestamp": "1759214061",
+      "status": "READ",
+      "messageC2STimestamp": "1759214062",
+      "userReceipt": [
+        {
+          "userJid": "60196953307@s.whatsapp.net",
+          "receiptTimestamp": "1759214062",
+          "readTimestamp": "1759214062",
+          "playedTimestamp": "0"
+        }
+      ],
+      "messageSecret": "f4xKvY6pioEjpGGCsqP7c8JOOyLFd6lRI1xxCJfwJ7w=",
+      "originalSelfAuthorUserJidString": "60194447054@s.whatsapp.net",
+      "isMentionedInStatus": false
+    }
+  ],
+  "type": "notify",
+  "requestId": "3EB0EB660D1B42F81C7548"
+}
+Closing open session in favor of incoming prekey bundle
+Closing session: SessionEntry {
+  _chains: {
+    'BYcq2QudUwT/6Z8obrXaESgFYL8zMBn8iJISJ19N2CQc': { chainKey: [Object], chainType: 2, messageKeys: {} },
+    BZcM4Z8YXWlLXkw9Mh4WUSt1xrBd978p9EeVtzKTVPQ1: { chainKey: [Object], chainType: 1, messageKeys: {} }
+  },
+  registrationId: 427176957,
+  currentRatchet: {
+    ephemeralKeyPair: {
+      pubKey: <Buffer 05 97 0c e1 9f 18 5d 69 4b 5e 4c 3d 32 1e 16 51 2b 75 c6 b0 5d f7 bf 29 f4 47 95 b7 32 93 54 f4 35>,
+      privKey: <Buffer 68 6e 79 69 d9 0a c7 73 5e 78 ac 29 e7 8b 2a b0 e7 ee 21 bb 59 11 fe ca 40 21 71 cf 3f 24 62 4f>
+    },
+    lastRemoteEphemeralKey: <Buffer 05 87 2a d9 0b 9d 53 04 ff e9 9f 28 6e b5 da 11 28 05 60 bf 33 30 19 fc 88 92 12 27 5f 4d d8 24 1c>,
+    previousCounter: 0,
+    rootKey: <Buffer 2f 05 d9 ec 32 78 6a e7 34 12 55 22 25 b0 cc 82 b9 2a 84 8d 6b d5 b9 6f c8 76 d6 c8 f2 b1 95 65>
+  },
+  indexInfo: {
+    baseKey: <Buffer 05 d4 57 fd 28 4a e6 b4 94 21 8c ed c7 85 05 2b 51 d5 50 bf 36 a9 cb 47 7f f1 86 58 3f a4 f2 ad 21>,
+    baseKeyType: 2,
+    closed: -1,
+    used: 1759213553838,
+    created: 1759213553838,
+    remoteIdentityKey: <Buffer 05 74 90 fd d9 96 e0 f0 cf 16 c1 9f 55 ce 58 8d d7 58 5d ae bd b1 a7 91 18 e5 c4 80 83 0a 25 8f 2f>
+  }
+}
+[RedisAuth] Executing bulk write { totalOperations: 2, opportunisticCount: 0 }
+[RedisAuth] Executing bulk write { totalOperations: 2, opportunisticCount: 0 }
+{"level":20,"time":"2025-09-30T06:34:28.483Z","pid":3783848,"hostname":"wabotv3-sql","attrs":{"id":"AC29241293F8DD795BA20356C3DC9BAE","to":"114194640801953@lid","type":"sender"},"messageIds":["AC29241293F8DD795BA20356C3DC9BAE"],"msg":"sending receipt for messages"}
+{"level":20,"time":"2025-09-30T06:34:28.484Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"message","attrs":{"from":"93866912915587@lid","type":"text","id":"AC29241293F8DD795BA20356C3DC9BAE","notify":"Wabot Ai Tester","recipient":"114194640801953@lid","peer_recipient_pn":"60196953307@s.whatsapp.net","t":"1759214068"}},"sent":{"id":"AC29241293F8DD795BA20356C3DC9BAE","to":"93866912915587@lid","class":"message","recipient":"114194640801953@lid","type":"text"},"msg":"sent ack"}
+messages.upsert received for 6719BC2A93532: {
+  "messages": [
+    {
+      "key": {
+        "remoteJid": "114194640801953@lid",
+        "fromMe": true,
+        "id": "AC29241293F8DD795BA20356C3DC9BAE",
+        "senderLid": "93866912915587@lid",
+        "senderPn": "60194447054@s.whatsapp.net"
+      },
+      "messageTimestamp": 1759214068,
+      "pushName": "Wabot Ai Tester",
+      "broadcast": false,
+      "status": 2,
+      "message": {
+        "conversation": "Hu"
+      }
+    }
+  ],
+  "type": "notify"
+}
+[RedisAuth] Executing bulk write { totalOperations: 2, opportunisticCount: 0 }
+{"level":20,"time":"2025-09-30T06:34:36.079Z","pid":3783848,"hostname":"wabotv3-sql","attrs":{"id":"3EB013A221D73922E016CF","to":"60196953307:79@s.whatsapp.net","type":"inactive"},"messageIds":["3EB013A221D73922E016CF"],"msg":"sending receipt for messages"}
+{"level":20,"time":"2025-09-30T06:34:36.080Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"message","attrs":{"from":"60196953307:79@s.whatsapp.net","type":"text","id":"3EB013A221D73922E016CF","notify":"Firdaus Azizi","sender_lid":"114194640801953@lid","t":"1759214075"}},"sent":{"id":"3EB013A221D73922E016CF","to":"60196953307:79@s.whatsapp.net","class":"message","type":"text"},"msg":"sent ack"}
+messages.upsert received for 6719BC2A93532: {
+  "messages": [
+    {
+      "key": {
+        "remoteJid": "60196953307@s.whatsapp.net",
+        "fromMe": false,
+        "id": "3EB013A221D73922E016CF",
+        "senderLid": "114194640801953@lid",
+        "senderPn": "60196953307@s.whatsapp.net"
+      },
+      "messageTimestamp": 1759214075,
+      "pushName": "Firdaus Azizi",
+      "broadcast": false,
+      "message": {
+        "conversation": "botcheck",
+        "messageContextInfo": {
+          "deviceListMetadata": {
+            "senderKeyHash": "jNmFLqXLxviC8g==",
+            "senderTimestamp": "1758603854",
+            "senderAccountType": "E2EE",
+            "receiverAccountType": "E2EE",
+            "recipientKeyHash": "1zsJSetStdHJBw==",
+            "recipientTimestamp": "1758580803"
+          },
+          "deviceListMetadataVersion": 2,
+          "messageSecret": "SxBw+vAU1uipF9rqiEkTGaJS/1dApZUqIbmN8wiFvgI=",
+          "limitSharingV2": {
+            "sharingLimited": false,
+            "trigger": "UNKNOWN",
+            "limitSharingSettingTimestamp": "0",
+            "initiatedByMe": false
+          }
+        }
+      }
+    }
+  ],
+  "type": "notify"
+}
+{"level":20,"time":"2025-09-30T06:34:36.305Z","pid":3783848,"hostname":"wabotv3-sql","msgId":"3EB031FC68D029709A7328","msg":"sending message to 4 devices"}
+[RedisAuth] Executing bulk write { totalOperations: 8, opportunisticCount: 0 }
+messages.upsert received for 6719BC2A93532: {
+  "messages": [
+    {
+      "key": {
+        "remoteJid": "60196953307@s.whatsapp.net",
+        "fromMe": true,
+        "id": "3EB031FC68D029709A7328"
+      },
+      "message": {
+        "extendedTextMessage": {
+          "text": "_chatbot connection is active_"
+        }
+      },
+      "messageTimestamp": "1759214076",
+      "status": "PENDING"
+    }
+  ],
+  "type": "append"
+}
+{"level":20,"time":"2025-09-30T06:34:36.422Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60194447054@s.whatsapp.net","type":"read","id":"3EB013A221D73922E016CF","recipient":"60196953307@s.whatsapp.net","t":"1759214076"}},"sent":{"id":"3EB013A221D73922E016CF","to":"60194447054@s.whatsapp.net","class":"receipt","recipient":"60196953307@s.whatsapp.net","type":"read"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:36.802Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60196953307:77@s.whatsapp.net","id":"3EB031FC68D029709A7328","t":"1759214076"}},"sent":{"id":"3EB031FC68D029709A7328","to":"60196953307:77@s.whatsapp.net","class":"receipt"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:36.852Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60196953307:79@s.whatsapp.net","id":"3EB031FC68D029709A7328","t":"1759214076"}},"sent":{"id":"3EB031FC68D029709A7328","to":"60196953307:79@s.whatsapp.net","class":"receipt"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:37.020Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60196953307:79@s.whatsapp.net","type":"read","id":"3EB031FC68D029709A7328","t":"1759214076"}},"sent":{"id":"3EB031FC68D029709A7328","to":"60196953307:79@s.whatsapp.net","class":"receipt","type":"read"},"msg":"sent ack"}
+Failed to decrypt message with any known session...
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:250:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:147:29)
+    at async 114194640801953.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)
+    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)
+Session error:Error: Bad MAC Error: Bad MAC
+    at Object.verifyMAC (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/crypto.js:87:15)
+    at SessionCipher.doDecryptWhisperMessage (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:250:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:147:29)
+    at async 114194640801953.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)
+    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)
+{"level":50,"time":"2025-09-30T06:34:41.107Z","pid":3783848,"hostname":"wabotv3-sql","key":{"remoteJid":"114194640801953@lid","fromMe":true,"id":"AC16BA713597ACB92B6DE1940E7BE6CC","senderLid":"93866912915587@lid","senderPn":"60194447054@s.whatsapp.net"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:161:15)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async 114194640801953.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)\n    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+messages.upsert received for 6719BC2A93532: {
+  "messages": [
+    {
+      "key": {
+        "remoteJid": "114194640801953@lid",
+        "fromMe": true,
+        "id": "AC16BA713597ACB92B6DE1940E7BE6CC",
+        "senderLid": "93866912915587@lid",
+        "senderPn": "60194447054@s.whatsapp.net"
+      },
+      "messageTimestamp": 1759214080,
+      "pushName": "Wabot Ai Tester",
+      "broadcast": false,
+      "status": 2,
+      "messageStubType": 2,
+      "messageStubParameters": [
+        "No matching sessions found for message"
+      ]
+    }
+  ],
+  "type": "notify"
+}
+{"level":20,"time":"2025-09-30T06:34:41.107Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"message","attrs":{"from":"93866912915587@lid","type":"text","id":"AC16BA713597ACB92B6DE1940E7BE6CC","recipient":"114194640801953@lid","notify":"Wabot Ai Tester","peer_recipient_pn":"60196953307@s.whatsapp.net","t":"1759214080"}},"sent":{"id":"AC16BA713597ACB92B6DE1940E7BE6CC","to":"93866912915587@lid","class":"message","recipient":"114194640801953@lid","type":"text"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:41.107Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"message","attrs":{"from":"93866912915587@lid","type":"text","id":"AC16BA713597ACB92B6DE1940E7BE6CC","recipient":"114194640801953@lid","notify":"Wabot Ai Tester","peer_recipient_pn":"60196953307@s.whatsapp.net","t":"1759214080"}},"sent":{"id":"AC16BA713597ACB92B6DE1940E7BE6CC","to":"93866912915587@lid","class":"message","recipient":"114194640801953@lid","type":"text"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:41.379Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"114194640801953:77@lid","id":"AC16BA713597ACB92B6DE1940E7BE6CC","t":"1759214081"}},"sent":{"id":"AC16BA713597ACB92B6DE1940E7BE6CC","to":"114194640801953:77@lid","class":"receipt"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:41.427Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"114194640801953:79@lid","id":"AC16BA713597ACB92B6DE1940E7BE6CC","t":"1759214081"}},"sent":{"id":"AC16BA713597ACB92B6DE1940E7BE6CC","to":"114194640801953:79@lid","class":"receipt"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:41.618Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60196953307:79@s.whatsapp.net","type":"read","id":"AC16BA713597ACB92B6DE1940E7BE6CC","t":"1759214081"}},"sent":{"id":"AC16BA713597ACB92B6DE1940E7BE6CC","to":"60196953307:79@s.whatsapp.net","class":"receipt","type":"read"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:42.398Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60196953307@s.whatsapp.net","id":"AC16BA713597ACB92B6DE1940E7BE6CC","t":"1759214082"}},"sent":{"id":"AC16BA713597ACB92B6DE1940E7BE6CC","to":"60196953307@s.whatsapp.net","class":"receipt"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:46.108Z","pid":3783848,"hostname":"wabotv3-sql","msgId":"3EB01E874CB5D5D36E1057","msg":"sending message to 1 devices"}
+[RedisAuth] Executing bulk write { totalOperations: 2, opportunisticCount: 0 }
+{"level":20,"time":"2025-09-30T06:34:46.109Z","pid":3783848,"hostname":"wabotv3-sql","msg":"sendRetryRequest: requested placeholder resend for message 3EB01E874CB5D5D36E1057"}
+{"level":30,"time":"2025-09-30T06:34:46.110Z","pid":3783848,"hostname":"wabotv3-sql","msgAttrs":{"from":"93866912915587@lid","type":"text","id":"AC16BA713597ACB92B6DE1940E7BE6CC","recipient":"114194640801953@lid","notify":"Wabot Ai Tester","peer_recipient_pn":"60196953307@s.whatsapp.net","t":"1759214080"},"retryCount":1,"msg":"sent retry receipt"}
+{"level":20,"time":"2025-09-30T06:34:46.299Z","pid":3783848,"hostname":"wabotv3-sql","unhandled":true,"msgId":"AC16BA713597ACB92B6DE1940E7BE6CC","fromMe":false,"frame":{"tag":"ack","attrs":{"from":"93866912915587@lid","class":"receipt","type":"retry","id":"AC16BA713597ACB92B6DE1940E7BE6CC","recipient":"114194640801953@lid"}},"msg":"communication recv"}
+{"level":20,"time":"2025-09-30T06:34:46.682Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"receipt","attrs":{"from":"60194447054@s.whatsapp.net","type":"peer_msg","id":"3EB01E874CB5D5D36E1057","t":"1759214086"}},"sent":{"id":"3EB01E874CB5D5D36E1057","to":"60194447054@s.whatsapp.net","class":"receipt","type":"peer_msg"},"msg":"sent ack"}
+[RedisAuth] Executing bulk write { totalOperations: 2, opportunisticCount: 0 }
+{"level":20,"time":"2025-09-30T06:34:46.686Z","pid":3783848,"hostname":"wabotv3-sql","attrs":{"id":"AC266A9937C75DEA90F4CFD2869CAF20","to":"60194447054@s.whatsapp.net","type":"peer_msg"},"messageIds":["AC266A9937C75DEA90F4CFD2869CAF20"],"msg":"sending receipt for messages"}
+{"level":20,"time":"2025-09-30T06:34:46.686Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"message","attrs":{"from":"60194447054@s.whatsapp.net","type":"text","id":"AC266A9937C75DEA90F4CFD2869CAF20","category":"peer","t":"1759214086"}},"sent":{"id":"AC266A9937C75DEA90F4CFD2869CAF20","to":"60194447054@s.whatsapp.net","class":"message","type":"text"},"msg":"sent ack"}
+{"level":50,"time":"2025-09-30T06:34:46.690Z","pid":3783848,"hostname":"wabotv3-sql","key":{"remoteJid":"114194640801953@lid","fromMe":true,"id":"AC16BA713597ACB92B6DE1940E7BE6CC","senderLid":"93866912915587@lid","senderPn":"60194447054@s.whatsapp.net"},"err":{"type":"SessionError","message":"No matching sessions found for message","stack":"SessionError: No matching sessions found for message\n    at SessionCipher.decryptWithSessions (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:161:15)\n    at async 114194640801953.0 [as awaitable] (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/session_cipher.js:171:28)\n    at async _asyncQueueExecutor (/home/wabotdev/api-wabot-dev/public_html/node_modules/libsignal/src/queue_job.js:20:29)","name":"SessionError"},"msg":"failed to decrypt message"}
+{"level":20,"time":"2025-09-30T06:34:46.690Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"message","attrs":{"from":"93866912915587@lid","type":"text","id":"AC16BA713597ACB92B6DE1940E7BE6CC","notify":"Wabot Ai Tester","recipient":"114194640801953@lid","peer_recipient_pn":"60196953307@s.whatsapp.net","t":"1759214086"}},"sent":{"id":"AC16BA713597ACB92B6DE1940E7BE6CC","to":"93866912915587@lid","class":"message","recipient":"114194640801953@lid","type":"text"},"msg":"sent ack"}
+{"level":20,"time":"2025-09-30T06:34:46.691Z","pid":3783848,"hostname":"wabotv3-sql","msg":"updated pushName"}
+[RedisAuth] Executing bulk write { totalOperations: 2, opportunisticCount: 0 }
+messages.upsert received for 6719BC2A93532: {
+  "messages": [
+    {
+      "key": {
+        "remoteJid": "60194447054@s.whatsapp.net",
+        "fromMe": true,
+        "id": "AC266A9937C75DEA90F4CFD2869CAF20",
+        "senderLid": "93866912915587@lid",
+        "senderPn": "60194447054@s.whatsapp.net"
+      },
+      "messageTimestamp": 1759214086,
+      "broadcast": false,
+      "status": 2,
+      "message": {
+        "protocolMessage": {
+          "type": "PEER_DATA_OPERATION_REQUEST_RESPONSE_MESSAGE",
+          "peerDataOperationRequestResponseMessage": {
+            "peerDataOperationRequestType": "PLACEHOLDER_MESSAGE_RESEND",
+            "stanzaId": "3EB01E874CB5D5D36E1057",
+            "peerDataOperationResult": [
+              {
+                "mediaUploadResult": "SUCCESS",
+                "placeholderMessageResendResponse": {
+                  "webMessageInfoBytes": "CkAKGjYwMTk2OTUzMzA3QHMud2hhdHNhcHAubmV0EAEaIEFDMTZCQTcxMzU5N0FDQjkyQjZERTE5NDBFN0JFNkNDEjAKCUN1YmEgbGFnaZoCIhogXvayJ1nFhm2bR3enUcvbCGI/MlnOVxVDlpfFB9tUgUIYgPTtxgYgBMICKgoaNjAxOTY5NTMzMDdAcy53aGF0c2FwcC5uZXQQgfTtxgYYgfTtxgYgAIoDIF72sidZxYZtm0d3p1HL2whiPzJZzlcVQ5aXxQfbVIFCmgMaNjAxOTQ0NDcwNTRAcy53aGF0c2FwcC5uZXSIBAA="
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "key": {
+        "remoteJid": "114194640801953@lid",
+        "fromMe": true,
+        "id": "AC16BA713597ACB92B6DE1940E7BE6CC",
+        "senderLid": "93866912915587@lid",
+        "senderPn": "60194447054@s.whatsapp.net"
+      },
+      "messageTimestamp": 1759214086,
+      "pushName": "Wabot Ai Tester",
+      "broadcast": false,
+      "status": 2,
+      "messageStubType": 2,
+      "messageStubParameters": [
+        "No matching sessions found for message"
+      ]
+    }
+  ],
+  "type": "notify"
+}
+{"level":30,"time":"2025-09-30T06:34:46.692Z","pid":3783848,"hostname":"wabotv3-sql","msgAttrs":{"from":"93866912915587@lid","type":"text","id":"AC16BA713597ACB92B6DE1940E7BE6CC","notify":"Wabot Ai Tester","recipient":"114194640801953@lid","peer_recipient_pn":"60196953307@s.whatsapp.net","t":"1759214086"},"retryCount":2,"msg":"sent retry receipt"}
+{"level":20,"time":"2025-09-30T06:34:46.876Z","pid":3783848,"hostname":"wabotv3-sql","unhandled":true,"msgId":"AC266A9937C75DEA90F4CFD2869CAF20","fromMe":false,"frame":{"tag":"ack","attrs":{"from":"60194447054@s.whatsapp.net","class":"receipt","type":"peer_msg","id":"AC266A9937C75DEA90F4CFD2869CAF20"}},"msg":"communication recv"}
+{"level":20,"time":"2025-09-30T06:34:46.881Z","pid":3783848,"hostname":"wabotv3-sql","unhandled":true,"msgId":"AC16BA713597ACB92B6DE1940E7BE6CC","fromMe":false,"frame":{"tag":"ack","attrs":{"from":"93866912915587@lid","class":"receipt","type":"retry","id":"AC16BA713597ACB92B6DE1940E7BE6CC","recipient":"114194640801953@lid"}},"msg":"communication recv"}
+messages.upsert received for 6719BC2A93532: {
+  "messages": [
+    {
+      "key": {
+        "remoteJid": "60196953307@s.whatsapp.net",
+        "fromMe": true,
+        "id": "AC16BA713597ACB92B6DE1940E7BE6CC"
+      },
+      "message": {
+        "conversation": "Cuba lagi",
+        "messageContextInfo": {
+          "messageSecret": "XvayJ1nFhm2bR3enUcvbCGI/MlnOVxVDlpfFB9tUgUI="
+        }
+      },
+      "messageTimestamp": "1759214080",
+      "status": "READ",
+      "userReceipt": [
+        {
+          "userJid": "60196953307@s.whatsapp.net",
+          "receiptTimestamp": "1759214081",
+          "readTimestamp": "1759214081",
+          "playedTimestamp": "0"
+        }
+      ],
+      "messageSecret": "XvayJ1nFhm2bR3enUcvbCGI/MlnOVxVDlpfFB9tUgUI=",
+      "originalSelfAuthorUserJidString": "60194447054@s.whatsapp.net",
+      "isMentionedInStatus": false
+    }
+  ],
+  "type": "notify",
+  "requestId": "3EB01E874CB5D5D36E1057"
+}
+Closing session: SessionEntry {
+  _chains: {
+    'BdChx6H8iUn+stdHoU2HLJRLqtd79rtPjvLxJeDM5Lsj': { chainKey: [Object], chainType: 2, messageKeys: {} },
+    BXAXAaPB6s2UiuVuWIzWjWhRmIN7yfgzTzc50iaCoh0H: { chainKey: [Object], chainType: 1, messageKeys: {} }
+  },
+  registrationId: 427176957,
+  currentRatchet: {
+    ephemeralKeyPair: {
+      pubKey: <Buffer 05 70 17 01 a3 c1 ea cd 94 8a e5 6e 58 8c d6 8d 68 51 98 83 7b c9 f8 33 4f 37 39 d2 26 82 a2 1d 07>,
+      privKey: <Buffer b8 8a f6 01 18 2b 4f 40 3e 7e ed ce 03 f9 01 09 a4 81 0d 12 71 c6 ea 0b 31 81 ec 12 1e 23 67 68>
+    },
+    lastRemoteEphemeralKey: <Buffer 05 d0 a1 c7 a1 fc 89 49 fe b2 d7 47 a1 4d 87 2c 94 4b aa d7 7b f6 bb 4f 8e f2 f1 25 e0 cc e4 bb 23>,
+    previousCounter: 0,
+    rootKey: <Buffer 6c 87 ce c1 a6 a9 94 7a 79 66 d6 df bb 18 f3 6d f7 1d ed 74 b9 57 e7 58 36 dc cd d7 32 d5 69 3d>
+  },
+  indexInfo: {
+    baseKey: <Buffer 05 1a 02 8a 4c 8b c5 3d a4 1c 33 a0 ea 2b e2 a6 36 2f ef 92 bc 4e 3f 5d 3c ab 17 68 e8 d9 4e df 01>,
+    baseKeyType: 2,
+    closed: -1,
+    used: 1759214068480,
+    created: 1759214068480,
+    remoteIdentityKey: <Buffer 05 74 90 fd d9 96 e0 f0 cf 16 c1 9f 55 ce 58 8d d7 58 5d ae bd b1 a7 91 18 e5 c4 80 83 0a 25 8f 2f>
+  }
+}
+[RedisAuth] Executing bulk write { totalOperations: 2, opportunisticCount: 0 }
+[RedisAuth] Executing bulk write { totalOperations: 2, opportunisticCount: 0 }
+{"level":20,"time":"2025-09-30T06:34:47.341Z","pid":3783848,"hostname":"wabotv3-sql","attrs":{"id":"AC16BA713597ACB92B6DE1940E7BE6CC","to":"114194640801953@lid","type":"sender"},"messageIds":["AC16BA713597ACB92B6DE1940E7BE6CC"],"msg":"sending receipt for messages"}
+{"level":20,"time":"2025-09-30T06:34:47.342Z","pid":3783848,"hostname":"wabotv3-sql","recv":{"tag":"message","attrs":{"from":"93866912915587@lid","type":"text","id":"AC16BA713597ACB92B6DE1940E7BE6CC","notify":"Wabot Ai Tester","recipient":"114194640801953@lid","peer_recipient_pn":"60196953307@s.whatsapp.net","t":"1759214087"}},"sent":{"id":"AC16BA713597ACB92B6DE1940E7BE6CC","to":"93866912915587@lid","class":"message","recipient":"114194640801953@lid","type":"text"},"msg":"sent ack"}
+messages.upsert received for 6719BC2A93532: {
+  "messages": [
+    {
+      "key": {
+        "remoteJid": "114194640801953@lid",
+        "fromMe": true,
+        "id": "AC16BA713597ACB92B6DE1940E7BE6CC",
+        "senderLid": "93866912915587@lid",
+        "senderPn": "60194447054@s.whatsapp.net"
+      },
+      "messageTimestamp": 1759214087,
+      "pushName": "Wabot Ai Tester",
+      "broadcast": false,
+      "status": 2,
+      "message": {
+        "conversation": "Cuba lagi"
+      }
+    }
+  ],
+  "type": "notify"
+}
