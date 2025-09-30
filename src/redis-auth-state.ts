@@ -494,8 +494,20 @@ export const useRedisAuthState = async (
       const atIndex = current.indexOf('@')
       if (atIndex !== -1) {
         const withoutDomain = current.slice(0, atIndex)
+        const domain = current.slice(atIndex + 1)
         if (withoutDomain) {
           queue.push(withoutDomain)
+        }
+
+        const colonIndex = withoutDomain.indexOf(':')
+        if (colonIndex !== -1) {
+          const baseUser = withoutDomain.slice(0, colonIndex)
+          if (baseUser) {
+            queue.push(`${baseUser}@${domain}`)
+            queue.push(`${baseUser}:0@${domain}`)
+          }
+        } else {
+          queue.push(`${withoutDomain}:0@${domain}`)
         }
       }
     }
