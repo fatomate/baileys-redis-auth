@@ -421,6 +421,7 @@ export const useRedisAuthState = async (
     enableLidSupport = true,
     enableLazyDualStorage = true,
     enableOpportunisticDualStorage = true,
+    enableLog = false,
     lidMappingTTL = 604800,
     lidCacheSize = 10000
   } = options
@@ -428,12 +429,27 @@ export const useRedisAuthState = async (
   // Get session-specific cache for better isolation
   const sessionCache = getSessionCache(sessionId)
 
+  const log = (...args: any[]): void => {
+    if (enableLog) {
+      console.log('[RedisAuth]', ...args)
+    }
+  }
+
   if (enableLidSupport) {
     configureLidHandler(sessionId, {
       cacheSize: lidCacheSize,
       mappingTTL: lidMappingTTL
     })
   }
+
+  log('Initialized Redis auth state', {
+    sessionId,
+    enableLidSupport,
+    enableLazyDualStorage,
+    enableOpportunisticDualStorage,
+    lidMappingTTL,
+    lidCacheSize
+  })
 
   // Initialize connection pool or use existing Redis client
   let redis: any
@@ -717,6 +733,12 @@ export const useRedisAuthState = async (
                   for (const variant of expandKeyVariants(phone)) {
                     expanded.add(variant)
                   }
+                  log('Session lookup mapping (lid→phone)', {
+                    requested: id,
+                    strippedId,
+                    phone,
+                    variants: Array.from(expanded)
+                  })
                 }
               } else if (isPhoneFormat(strippedId)) {
                 const lid = await getReverseLidMapping(redis, sessionId, strippedId, keyPrefix)
@@ -724,10 +746,20 @@ export const useRedisAuthState = async (
                   for (const variant of expandKeyVariants(lid)) {
                     expanded.add(variant)
                   }
+                  log('Session lookup mapping (phone→lid)', {
+                    requested: id,
+                    strippedId,
+                    lid,
+                    variants: Array.from(expanded)
+                  })
                 }
               }
 
               expansionMap.set(id, expanded)
+              log('Session lookup variants prepared', {
+                requested: id,
+                variants: Array.from(expanded)
+              })
             })
           )
 
@@ -762,6 +794,10 @@ export const useRedisAuthState = async (
 
             if (value === undefined || value === null) {
               result[id] = null
+              log('Session lookup miss', {
+                requested: id,
+                variants: Array.from(possibleKeys)
+              })
               continue
             }
 
@@ -769,6 +805,11 @@ export const useRedisAuthState = async (
 
             if (enableLazyDualStorage && alternateSource && alternateSource !== id) {
               queueVariantOperations(lazyWriteOperations, type, id, value)
+              log('Session resolved via alternate format', {
+                requested: id,
+                alternateSource,
+                variants: Array.from(possibleKeys)
+              })
 
               const cleanedTarget = stripDeviceSuffix(id)
               const cleanedSource = stripDeviceSuffix(alternateSource)
@@ -786,6 +827,9 @@ export const useRedisAuthState = async (
           }
 
           if (enableLazyDualStorage && Object.keys(lazyWriteOperations).length > 0) {
+            log('Queued lazy dual storage operations', {
+              count: Object.keys(lazyWriteOperations).length
+            })
             bulkWrite(lazyWriteOperations).catch(error => {
               console.error('[Redis Auth] Lazy dual storage failed:', error)
             })
@@ -816,11 +860,21 @@ export const useRedisAuthState = async (
                     const phone = await getLidMapping(redis, sessionId, cleanedId, keyPrefix)
                     if (phone) {
                       await storeLidMapping(redis, sessionId, cleanedId, phone, keyPrefix, lidMappingTTL)
+                      log('Opportunistic dual storage mapping', {
+                        base: cleanedId,
+                        mapped: phone,
+                        category
+                      })
                     }
                     if (!phone || !enableOpportunisticDualStorage) {
                       return
                     }
                     queueVariantOperations(opportunisticWrites, category, phone, value)
+                    log('Queued opportunistic dual storage write', {
+                      base: cleanedId,
+                      alternate: phone,
+                      category
+                    })
                   })()
                 )
               } else if (isPhoneFormat(cleanedId)) {
@@ -829,11 +883,21 @@ export const useRedisAuthState = async (
                     const lid = await getReverseLidMapping(redis, sessionId, cleanedId, keyPrefix)
                     if (lid) {
                       await storeLidMapping(redis, sessionId, lid, cleanedId, keyPrefix, lidMappingTTL)
+                      log('Opportunistic dual storage mapping', {
+                        base: cleanedId,
+                        mapped: lid,
+                        category
+                      })
                     }
                     if (!lid || !enableOpportunisticDualStorage) {
                       return
                     }
                     queueVariantOperations(opportunisticWrites, category, lid, value)
+                    log('Queued opportunistic dual storage write', {
+                      base: cleanedId,
+                      alternate: lid,
+                      category
+                    })
                   })()
                 )
               }
@@ -841,6 +905,7 @@ export const useRedisAuthState = async (
           }
 
           if (mappingLookups.length > 0) {
+            log('Awaiting mapping lookups', { count: mappingLookups.length })
             await Promise.allSettled(mappingLookups)
           }
 
@@ -848,6 +913,10 @@ export const useRedisAuthState = async (
             ? { ...writeOperations, ...opportunisticWrites }
             : writeOperations
 
+          log('Executing bulk write', {
+            totalOperations: Object.keys(finalOperations).length,
+            opportunisticCount: Object.keys(opportunisticWrites).length
+          })
           await bulkWrite(finalOperations)
         }
       }

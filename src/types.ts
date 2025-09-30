@@ -86,6 +86,12 @@ export interface RedisAuthStateOptions {
    * @default true
    */
   enableOpportunisticDualStorage?: boolean
+
+  /**
+   * Enable verbose RedisAuth logging for troubleshooting
+   * @default false
+   */
+  enableLog?: boolean
   
   /**
    * TTL for LID to phone number mappings in seconds
