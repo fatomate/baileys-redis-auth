@@ -91,24 +91,75 @@ export const extractNumericId = (jid: string): string | null => {
   return match ? match[1] : null
 }
 
+const normalizeMappingKey = (value: string): string => {
+  if (!value || typeof value !== 'string') {
+    return ''
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return ''
+  }
+
+  return trimmed.replace(/([:.]\d+)(?=@|$)/g, '')
+}
+
 /**
  * Store a bidirectional LID to phone number mapping
  */
-export const storeLidMapping = async (
+export async function storeLidMapping(
   redis: any,
   sessionId: string,
   lid: string,
   phoneNumber: string,
   keyPrefix: string = 'baileys:session:',
   ttl?: number
-): Promise<void> => {
+): Promise<void> {
   try {
+    const normalizedLid = normalizeMappingKey(lid)
+    const normalizedPhone = normalizeMappingKey(phoneNumber)
+
+    if (!normalizedLid || !normalizedPhone) {
+      console.warn('[LidHandler] Skipping mapping with empty normalized values', {
+        lid,
+        phoneNumber
+      })
+      return
+    }
+
+    const existingPhone = await getLidMapping(redis, sessionId, normalizedLid, keyPrefix)
+    if (existingPhone) {
+      const existingNormalizedPhone = normalizeMappingKey(existingPhone)
+      if (existingNormalizedPhone !== normalizedPhone) {
+        console.warn('[LidHandler] Ignoring conflicting mapping', {
+          sessionId,
+          lid: normalizedLid,
+          newPhone: normalizedPhone,
+          existingPhone: existingPhone
+        })
+        return
+      }
+    }
+
+    const existingLid = await getReverseLidMapping(redis, sessionId, normalizedPhone, keyPrefix)
+    if (existingLid) {
+      const existingNormalizedLid = normalizeMappingKey(existingLid)
+      if (existingNormalizedLid !== normalizedLid) {
+        console.warn('[LidHandler] Phone already mapped to different LID, skipping update', {
+          sessionId,
+          phoneNumber: normalizedPhone,
+          existingLid
+        })
+        return
+      }
+    }
+
     const effectiveTtl = getMappingTtl(sessionId, ttl)
     const cacheLimit = getCacheLimit(sessionId)
 
     // Store in Redis
-    const lidKey = `${keyPrefix}lid:${sessionId}:${lid}`
-    const phoneKey = `${keyPrefix}lid:reverse:${sessionId}:${phoneNumber}`
+    const lidKey = `${keyPrefix}lid:${sessionId}:${normalizedLid}`
+    const phoneKey = `${keyPrefix}lid:reverse:${sessionId}:${normalizedPhone}`
     
     // Use appropriate Redis method for setting with TTL
     if (effectiveTtl > 0) {
@@ -138,10 +189,10 @@ export const storeLidMapping = async (
     if (!phoneCache.has(sessionId)) {
       phoneCache.set(sessionId, new Map())
     }
-    
+
     const sessionLidCache = lidCache.get(sessionId)!
     const sessionPhoneCache = phoneCache.get(sessionId)!
-    
+
     if (sessionLidCache.size >= cacheLimit) {
       trimCacheToLimit(sessionLidCache, cacheLimit - 1)
     }
@@ -149,8 +200,8 @@ export const storeLidMapping = async (
       trimCacheToLimit(sessionPhoneCache, cacheLimit - 1)
     }
     
-    sessionLidCache.set(lid, phoneNumber)
-    sessionPhoneCache.set(phoneNumber, lid)
+    sessionLidCache.set(normalizedLid, normalizedPhone)
+    sessionPhoneCache.set(normalizedPhone, normalizedLid)
 
   } catch (error) {
     console.error(`[LID Handler] Error storing LID mapping:`, error)
@@ -160,23 +211,28 @@ export const storeLidMapping = async (
 /**
  * Get phone number for a given LID
  */
-export const getLidMapping = async (
+export async function getLidMapping(
   redis: any,
   sessionId: string,
   lid: string,
   keyPrefix: string = 'baileys:session:'
-): Promise<string | null> => {
+): Promise<string | null> {
   try {
+    const normalizedLid = normalizeMappingKey(lid)
+    if (!normalizedLid) {
+      return null
+    }
+
     const cacheLimit = getCacheLimit(sessionId)
 
     // Check memory cache first
     const sessionCache = lidCache.get(sessionId)
-    if (sessionCache?.has(lid)) {
-      return sessionCache.get(lid)!
+    if (sessionCache?.has(normalizedLid)) {
+      return sessionCache.get(normalizedLid)!
     }
     
     // Check Redis
-    const key = `${keyPrefix}lid:${sessionId}:${lid}`
+    const key = `${keyPrefix}lid:${sessionId}:${normalizedLid}`
     const phoneNumber = await redis.get(key)
     
     if (phoneNumber) {
@@ -188,7 +244,7 @@ export const getLidMapping = async (
       if (sessionLidCache.size >= cacheLimit) {
         trimCacheToLimit(sessionLidCache, cacheLimit - 1)
       }
-      sessionLidCache.set(lid, phoneNumber)
+      sessionLidCache.set(normalizedLid, normalizeMappingKey(phoneNumber) || phoneNumber)
       return phoneNumber
     }
     
@@ -202,23 +258,28 @@ export const getLidMapping = async (
 /**
  * Get LID for a given phone number (reverse lookup)
  */
-export const getReverseLidMapping = async (
+export async function getReverseLidMapping(
   redis: any,
   sessionId: string,
   phoneNumber: string,
   keyPrefix: string = 'baileys:session:'
-): Promise<string | null> => {
+): Promise<string | null> {
   try {
+    const normalizedPhone = normalizeMappingKey(phoneNumber)
+    if (!normalizedPhone) {
+      return null
+    }
+
     // Check memory cache first
     const cacheLimit = getCacheLimit(sessionId)
 
     const sessionCache = phoneCache.get(sessionId)
-    if (sessionCache?.has(phoneNumber)) {
-      return sessionCache.get(phoneNumber)!
+    if (sessionCache?.has(normalizedPhone)) {
+      return sessionCache.get(normalizedPhone)!
     }
     
     // Check Redis
-    const key = `${keyPrefix}lid:reverse:${sessionId}:${phoneNumber}`
+    const key = `${keyPrefix}lid:reverse:${sessionId}:${normalizedPhone}`
     const lid = await redis.get(key)
     
     if (lid) {
@@ -230,7 +291,7 @@ export const getReverseLidMapping = async (
       if (sessionPhoneCache.size >= cacheLimit) {
         trimCacheToLimit(sessionPhoneCache, cacheLimit - 1)
       }
-      sessionPhoneCache.set(phoneNumber, lid)
+      sessionPhoneCache.set(normalizedPhone, normalizeMappingKey(lid) || lid)
       return lid
     }
     
@@ -292,15 +353,24 @@ export const batchGetLidMappings = async (
 ): Promise<Map<string, string | null>> => {
   const mappings = new Map<string, string | null>()
   const sessionCache = lidCache.get(sessionId)
+  const normalizedLookup = new Map<string, string>()
   const uncachedLids: string[] = []
   const cacheLimit = getCacheLimit(sessionId)
   
   // Check cache first
   for (const lid of lids) {
-    if (sessionCache?.has(lid)) {
-      mappings.set(lid, sessionCache.get(lid)!)
+    const normalizedLid = normalizeMappingKey(lid)
+    normalizedLookup.set(lid, normalizedLid)
+
+    if (!normalizedLid) {
+      mappings.set(lid, null)
+      continue
+    }
+
+    if (sessionCache?.has(normalizedLid)) {
+      mappings.set(lid, sessionCache.get(normalizedLid)!)
     } else {
-      uncachedLids.push(lid)
+      uncachedLids.push(normalizedLid)
       mappings.set(lid, null)
     }
   }
@@ -309,15 +379,20 @@ export const batchGetLidMappings = async (
   if (uncachedLids.length > 0) {
     try {
       const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
-      const keys = uncachedLids.map(lid => `${keyPrefix}lid:${sessionId}:${lid}`)
+      const uniqueLids = Array.from(new Set(uncachedLids))
+      const keys = uniqueLids.map(lid => `${keyPrefix}lid:${sessionId}:${lid}`)
       
       keys.forEach(key => pipeline.get(key))
       const results = await pipeline.exec()
       
-      for (let i = 0; i < uncachedLids.length; i++) {
+      for (let i = 0; i < uniqueLids.length; i++) {
         const phoneNumber = results[i][1]
         if (phoneNumber) {
-          mappings.set(uncachedLids[i], phoneNumber)
+          const normalizedPhone = normalizeMappingKey(phoneNumber) || phoneNumber
+          const originalKeys = Array.from(normalizedLookup.entries()).filter(([, norm]) => norm === uniqueLids[i]).map(([original]) => original)
+          for (const original of originalKeys) {
+            mappings.set(original, normalizedPhone)
+          }
           // Update cache
           if (!lidCache.has(sessionId)) {
             lidCache.set(sessionId, new Map())
@@ -326,7 +401,7 @@ export const batchGetLidMappings = async (
           if (sessionLidCache.size >= cacheLimit) {
             trimCacheToLimit(sessionLidCache, cacheLimit - 1)
           }
-          sessionLidCache.set(uncachedLids[i], phoneNumber)
+          sessionLidCache.set(uniqueLids[i], normalizedPhone)
         }
       }
     } catch (error) {
@@ -534,10 +609,48 @@ export const registerLidMapping = async (
       return false
     }
     
-    // Store the bidirectional mapping
-    await storeLidMapping(redis, sessionId, lid, phoneNumber, keyPrefix, ttl)
-    
-    console.log(`[registerLidMapping] Successfully registered mapping: ${lid} <-> ${phoneNumber} for session ${sessionId}`)
+    const normalizedPhone = normalizeMappingKey(phoneNumber)
+    const normalizedLid = normalizeMappingKey(lid)
+
+    if (!normalizedPhone || !normalizedLid) {
+      console.error('[registerLidMapping] Normalized values are empty, refusing to register', {
+        lid,
+        phoneNumber
+      })
+      return false
+    }
+
+    const existingPhone = await getLidMapping(redis, sessionId, normalizedLid, keyPrefix)
+    if (existingPhone) {
+      const existingNormalizedPhone = normalizeMappingKey(existingPhone)
+      if (existingNormalizedPhone !== normalizedPhone) {
+        console.warn('[registerLidMapping] Conflict detected for LID mapping, skipping update', {
+          sessionId,
+          lid: normalizedLid,
+          existingPhone,
+          attemptedPhone: phoneNumber
+        })
+        return false
+      }
+    }
+
+    const existingLid = await getReverseLidMapping(redis, sessionId, normalizedPhone, keyPrefix)
+    if (existingLid) {
+      const existingNormalizedLid = normalizeMappingKey(existingLid)
+      if (existingNormalizedLid !== normalizedLid) {
+        console.warn('[registerLidMapping] Phone already linked to different LID, skipping update', {
+          sessionId,
+          phoneNumber: normalizedPhone,
+          existingLid
+        })
+        return false
+      }
+    }
+
+    // Store the bidirectional mapping (refreshes TTL when mapping matches)
+    await storeLidMapping(redis, sessionId, normalizedLid, normalizedPhone, keyPrefix, ttl)
+
+    console.log(`[registerLidMapping] Successfully registered mapping: ${normalizedLid} <-> ${normalizedPhone} for session ${sessionId}`)
     return true
     
   } catch (error) {
