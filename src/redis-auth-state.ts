@@ -455,6 +455,52 @@ export const useRedisAuthState = async (
     batchManager = new BatchOperationManager(redis, batchSize)
   }
 
+  const stripDeviceSuffix = (jid: string): string => jid.replace(/:\d+$/, '')
+
+  const expandKeyVariants = (value: string): Set<string> => {
+    const variants = new Set<string>()
+    const queue: string[] = [value]
+
+    while (queue.length > 0) {
+      const current = queue.pop()!
+      if (variants.has(current)) {
+        continue
+      }
+      variants.add(current)
+
+      const deviceMatch = current.match(/^(.*?)(:\d+)$/)
+      if (deviceMatch) {
+        queue.push(deviceMatch[1])
+      } else if (!current.includes(':')) {
+        queue.push(`${current}:0`)
+      }
+
+      const atIndex = current.indexOf('@')
+      if (atIndex !== -1) {
+        const withoutDomain = current.slice(0, atIndex)
+        if (withoutDomain) {
+          queue.push(withoutDomain)
+        }
+      }
+    }
+
+    return variants
+  }
+
+  const queueVariantOperations = (
+    target: { [key: string]: any },
+    category: string,
+    idValue: string,
+    payload: any
+  ): void => {
+    for (const variant of expandKeyVariants(idValue)) {
+      const opKey = `${category}-${variant}`
+      if (!(opKey in target)) {
+        target[opKey] = payload
+      }
+    }
+  }
+
   // Helper function to generate Redis keys
   const getRedisKey = (key: string): string => `${sessionKey}:${key}`
 
@@ -658,17 +704,26 @@ export const useRedisAuthState = async (
 
           await Promise.all(
             uniqueIds.map(async id => {
-              const expanded = new Set<string>([id])
+              const expanded = new Set<string>()
+              for (const variant of expandKeyVariants(id)) {
+                expanded.add(variant)
+              }
 
-              if (isLidFormat(id)) {
-                const phone = await getLidMapping(redis, sessionId, id, keyPrefix)
+              const strippedId = stripDeviceSuffix(id)
+
+              if (isLidFormat(strippedId)) {
+                const phone = await getLidMapping(redis, sessionId, strippedId, keyPrefix)
                 if (phone) {
-                  expanded.add(phone)
+                  for (const variant of expandKeyVariants(phone)) {
+                    expanded.add(variant)
+                  }
                 }
-              } else if (isPhoneFormat(id)) {
-                const lid = await getReverseLidMapping(redis, sessionId, id, keyPrefix)
+              } else if (isPhoneFormat(strippedId)) {
+                const lid = await getReverseLidMapping(redis, sessionId, strippedId, keyPrefix)
                 if (lid) {
-                  expanded.add(lid)
+                  for (const variant of expandKeyVariants(lid)) {
+                    expanded.add(variant)
+                  }
                 }
               }
 
@@ -713,13 +768,17 @@ export const useRedisAuthState = async (
             result[id] = toAppStateSyncValue(value)
 
             if (enableLazyDualStorage && alternateSource && alternateSource !== id) {
-              lazyWriteOperations[directKey] = value
-              if (isLidFormat(id) && isPhoneFormat(alternateSource)) {
-                storeLidMapping(redis, sessionId, id, alternateSource, keyPrefix, lidMappingTTL).catch(error => {
+              queueVariantOperations(lazyWriteOperations, type, id, value)
+
+              const cleanedTarget = stripDeviceSuffix(id)
+              const cleanedSource = stripDeviceSuffix(alternateSource)
+
+              if (isLidFormat(cleanedTarget) && isPhoneFormat(cleanedSource)) {
+                storeLidMapping(redis, sessionId, cleanedTarget, cleanedSource, keyPrefix, lidMappingTTL).catch(error => {
                   console.error('[Redis Auth] Failed to refresh LID mapping during lazy copy:', error)
                 })
-              } else if (isPhoneFormat(id) && isLidFormat(alternateSource)) {
-                storeLidMapping(redis, sessionId, alternateSource, id, keyPrefix, lidMappingTTL).catch(error => {
+              } else if (isPhoneFormat(cleanedTarget) && isLidFormat(cleanedSource)) {
+                storeLidMapping(redis, sessionId, cleanedSource, cleanedTarget, keyPrefix, lidMappingTTL).catch(error => {
                   console.error('[Redis Auth] Failed to refresh LID mapping during lazy copy:', error)
                 })
               }
@@ -743,37 +802,38 @@ export const useRedisAuthState = async (
           for (const category in data) {
             for (const id in data[category]) {
               const value = data[category][id]
-              const key = `${category}-${id}`
-              writeOperations[key] = value
+              queueVariantOperations(writeOperations, category, id, value)
 
               if (!enableLidSupport || category !== 'session' || value === undefined || value === null) {
                 continue
               }
 
-              if (isLidFormat(id)) {
+              const cleanedId = stripDeviceSuffix(id)
+
+              if (isLidFormat(cleanedId)) {
                 mappingLookups.push(
                   (async () => {
-                    const phone = await getLidMapping(redis, sessionId, id, keyPrefix)
+                    const phone = await getLidMapping(redis, sessionId, cleanedId, keyPrefix)
                     if (phone) {
-                      await storeLidMapping(redis, sessionId, id, phone, keyPrefix, lidMappingTTL)
+                      await storeLidMapping(redis, sessionId, cleanedId, phone, keyPrefix, lidMappingTTL)
                     }
-                    if (!phone || phone === id || !enableOpportunisticDualStorage) {
+                    if (!phone || !enableOpportunisticDualStorage) {
                       return
                     }
-                    opportunisticWrites[`${category}-${phone}`] = value
+                    queueVariantOperations(opportunisticWrites, category, phone, value)
                   })()
                 )
-              } else if (isPhoneFormat(id)) {
+              } else if (isPhoneFormat(cleanedId)) {
                 mappingLookups.push(
                   (async () => {
-                    const lid = await getReverseLidMapping(redis, sessionId, id, keyPrefix)
+                    const lid = await getReverseLidMapping(redis, sessionId, cleanedId, keyPrefix)
                     if (lid) {
-                      await storeLidMapping(redis, sessionId, lid, id, keyPrefix, lidMappingTTL)
+                      await storeLidMapping(redis, sessionId, lid, cleanedId, keyPrefix, lidMappingTTL)
                     }
-                    if (!lid || lid === id || !enableOpportunisticDualStorage) {
+                    if (!lid || !enableOpportunisticDualStorage) {
                       return
                     }
-                    opportunisticWrites[`${category}-${lid}`] = value
+                    queueVariantOperations(opportunisticWrites, category, lid, value)
                   })()
                 )
               }
