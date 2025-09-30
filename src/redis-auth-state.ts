@@ -1,7 +1,13 @@
 import { RedisAuthStateOptions } from './types'
 import { 
   cleanupLidCache,
-  cleanupLidMappings
+  cleanupLidMappings,
+  configureLidHandler,
+  getLidMapping,
+  getReverseLidMapping,
+  isLidFormat,
+  isPhoneFormat,
+  storeLidMapping
 } from './lid-handler'
 
 // Per-session memory caches for better isolation
@@ -413,12 +419,21 @@ export const useRedisAuthState = async (
     enableCache = true,
     cacheTTL = 30000,
     enableLidSupport = true,
+    enableLazyDualStorage = true,
+    enableOpportunisticDualStorage = true,
     lidMappingTTL = 604800,
     lidCacheSize = 10000
   } = options
 
   // Get session-specific cache for better isolation
   const sessionCache = getSessionCache(sessionId)
+
+  if (enableLidSupport) {
+    configureLidHandler(sessionId, {
+      cacheSize: lidCacheSize,
+      mappingTTL: lidMappingTTL
+    })
+  }
 
   // Initialize connection pool or use existing Redis client
   let redis: any
@@ -612,48 +627,168 @@ export const useRedisAuthState = async (
       creds,
       keys: {
         get: async (type: string, ids: string[]) => {
-          const keyedIds = ids.map(id => `${type}-${id}`)
-          const data = await bulkRead(keyedIds)
-          
+          const toAppStateSyncValue = (raw: any) => {
+            if (type === 'app-state-sync-key' && raw) {
+              try {
+                const { proto } = eval('require')('baileys/WAProto')
+                return proto.Message.AppStateSyncKeyData.fromObject(raw)
+              } catch (error: any) {
+                return raw
+              }
+            }
+            return raw
+          }
+
+          if (!(enableLidSupport && type === 'session')) {
+            const keyedIds = ids.map(id => `${type}-${id}`)
+            const data = await bulkRead(keyedIds)
+            const result: { [id: string]: any } = {}
+
+            for (const id of ids) {
+              const key = `${type}-${id}`
+              const value = data[key]
+              result[id] = value === undefined || value === null ? null : toAppStateSyncValue(value)
+            }
+
+            return result
+          }
+
+          const uniqueIds = Array.from(new Set(ids))
+          const expansionMap = new Map<string, Set<string>>()
+
+          await Promise.all(
+            uniqueIds.map(async id => {
+              const expanded = new Set<string>([id])
+
+              if (isLidFormat(id)) {
+                const phone = await getLidMapping(redis, sessionId, id, keyPrefix)
+                if (phone) {
+                  expanded.add(phone)
+                }
+              } else if (isPhoneFormat(id)) {
+                const lid = await getReverseLidMapping(redis, sessionId, id, keyPrefix)
+                if (lid) {
+                  expanded.add(lid)
+                }
+              }
+
+              expansionMap.set(id, expanded)
+            })
+          )
+
+          const allLookupIds = new Set<string>()
+          for (const expanded of expansionMap.values()) {
+            expanded.forEach(value => allLookupIds.add(value))
+          }
+
+          const data = await bulkRead(Array.from(allLookupIds).map(value => `${type}-${value}`))
+
           const result: { [id: string]: any } = {}
+          const lazyWriteOperations: { [key: string]: any } = {}
+
           for (const id of ids) {
-            const key = `${type}-${id}`
-            const value = data[key]
-            
-            // Return null for missing keys, just like multi-file auth
+            const possibleKeys = expansionMap.get(id) ?? new Set<string>([id])
+            const directKey = `${type}-${id}`
+            let value = data[directKey]
+            let alternateSource: string | null = null
+
+            if (value === undefined || value === null) {
+              for (const candidate of possibleKeys) {
+                if (candidate === id) continue
+                const candidateKey = `${type}-${candidate}`
+                const candidateValue = data[candidateKey]
+                if (candidateValue !== undefined && candidateValue !== null) {
+                  value = candidateValue
+                  alternateSource = candidate
+                  break
+                }
+              }
+            }
+
             if (value === undefined || value === null) {
               result[id] = null
-            } else {
-              // Special handling for app-state-sync-key
-              if (type === 'app-state-sync-key' && value) {
-                try {
-                  const { proto } = eval('require')('baileys/WAProto')
-                  result[id] = proto.Message.AppStateSyncKeyData.fromObject(value)
-                } catch (error: any) {
-                  // Baileys not available, keep original value
-                  result[id] = value
-                }
-              } else {
-                result[id] = value
+              continue
+            }
+
+            result[id] = toAppStateSyncValue(value)
+
+            if (enableLazyDualStorage && alternateSource && alternateSource !== id) {
+              lazyWriteOperations[directKey] = value
+              if (isLidFormat(id) && isPhoneFormat(alternateSource)) {
+                storeLidMapping(redis, sessionId, id, alternateSource, keyPrefix, lidMappingTTL).catch(error => {
+                  console.error('[Redis Auth] Failed to refresh LID mapping during lazy copy:', error)
+                })
+              } else if (isPhoneFormat(id) && isLidFormat(alternateSource)) {
+                storeLidMapping(redis, sessionId, alternateSource, id, keyPrefix, lidMappingTTL).catch(error => {
+                  console.error('[Redis Auth] Failed to refresh LID mapping during lazy copy:', error)
+                })
               }
             }
           }
-          
+
+          if (enableLazyDualStorage && Object.keys(lazyWriteOperations).length > 0) {
+            bulkWrite(lazyWriteOperations).catch(error => {
+              console.error('[Redis Auth] Lazy dual storage failed:', error)
+            })
+          }
+
           return result
         },
         
         set: async (data: any) => {
           const writeOperations: { [key: string]: any } = {}
+          const opportunisticWrites: { [key: string]: any } = {}
+          const mappingLookups: Promise<void>[] = []
           
           for (const category in data) {
             for (const id in data[category]) {
               const value = data[category][id]
               const key = `${category}-${id}`
               writeOperations[key] = value
+
+              if (!enableLidSupport || category !== 'session' || value === undefined || value === null) {
+                continue
+              }
+
+              if (isLidFormat(id)) {
+                mappingLookups.push(
+                  (async () => {
+                    const phone = await getLidMapping(redis, sessionId, id, keyPrefix)
+                    if (phone) {
+                      await storeLidMapping(redis, sessionId, id, phone, keyPrefix, lidMappingTTL)
+                    }
+                    if (!phone || phone === id || !enableOpportunisticDualStorage) {
+                      return
+                    }
+                    opportunisticWrites[`${category}-${phone}`] = value
+                  })()
+                )
+              } else if (isPhoneFormat(id)) {
+                mappingLookups.push(
+                  (async () => {
+                    const lid = await getReverseLidMapping(redis, sessionId, id, keyPrefix)
+                    if (lid) {
+                      await storeLidMapping(redis, sessionId, lid, id, keyPrefix, lidMappingTTL)
+                    }
+                    if (!lid || lid === id || !enableOpportunisticDualStorage) {
+                      return
+                    }
+                    opportunisticWrites[`${category}-${lid}`] = value
+                  })()
+                )
+              }
             }
           }
 
-          await bulkWrite(writeOperations)
+          if (mappingLookups.length > 0) {
+            await Promise.allSettled(mappingLookups)
+          }
+
+          const finalOperations = enableOpportunisticDualStorage
+            ? { ...writeOperations, ...opportunisticWrites }
+            : writeOperations
+
+          await bulkWrite(finalOperations)
         }
       }
     },

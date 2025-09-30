@@ -8,13 +8,64 @@
  * This module provides utilities to handle LID format correlation
  */
 
-// Constants
-const LID_MAPPING_TTL = 604800 // 7 days in seconds
-const LID_CACHE_SIZE = 10000 // Max number of cached mappings per session
+// Constants (configurable per session via configureLidHandler)
+let DEFAULT_LID_MAPPING_TTL = 604800 // 7 days in seconds
+let DEFAULT_LID_CACHE_SIZE = 10000 // Max number of cached mappings per session
+
+const sessionMappingOverrides = new Map<string, number>()
+const sessionCacheLimits = new Map<string, number>()
 
 // Memory cache for LID mappings (per session)
 const lidCache = new Map<string, Map<string, string>>()
 const phoneCache = new Map<string, Map<string, string>>()
+
+const trimCacheToLimit = (cache: Map<string, string>, limit: number): void => {
+  if (!cache) return
+  while (cache.size > limit) {
+    const firstKey = cache.keys().next().value
+    if (!firstKey) break
+    cache.delete(firstKey)
+  }
+}
+
+const getCacheLimit = (sessionId: string): number => {
+  return sessionCacheLimits.get(sessionId) ?? DEFAULT_LID_CACHE_SIZE
+}
+
+const getMappingTtl = (sessionId: string, ttlOverride?: number): number => {
+  if (typeof ttlOverride === 'number') {
+    return ttlOverride
+  }
+  if (sessionMappingOverrides.has(sessionId)) {
+    return sessionMappingOverrides.get(sessionId)!
+  }
+  return DEFAULT_LID_MAPPING_TTL
+}
+
+export const configureLidHandler = (
+  sessionId: string,
+  options: {
+    cacheSize?: number
+    mappingTTL?: number
+  } = {}
+): void => {
+  if (typeof options.mappingTTL === 'number' && options.mappingTTL >= 0) {
+    sessionMappingOverrides.set(sessionId, options.mappingTTL)
+  }
+
+  if (typeof options.cacheSize === 'number' && options.cacheSize > 0) {
+    const normalized = Math.max(1, Math.floor(options.cacheSize))
+    sessionCacheLimits.set(sessionId, normalized)
+    const lid = lidCache.get(sessionId)
+    if (lid) {
+      trimCacheToLimit(lid, normalized)
+    }
+    const phone = phoneCache.get(sessionId)
+    if (phone) {
+      trimCacheToLimit(phone, normalized)
+    }
+  }
+}
 
 /**
  * Check if a JID is in LID format
@@ -49,25 +100,28 @@ export const storeLidMapping = async (
   lid: string,
   phoneNumber: string,
   keyPrefix: string = 'baileys:session:',
-  ttl: number = LID_MAPPING_TTL
+  ttl?: number
 ): Promise<void> => {
   try {
+    const effectiveTtl = getMappingTtl(sessionId, ttl)
+    const cacheLimit = getCacheLimit(sessionId)
+
     // Store in Redis
     const lidKey = `${keyPrefix}lid:${sessionId}:${lid}`
     const phoneKey = `${keyPrefix}lid:reverse:${sessionId}:${phoneNumber}`
     
     // Use appropriate Redis method for setting with TTL
-    if (ttl > 0) {
+    if (effectiveTtl > 0) {
       if (typeof redis.setex === 'function' || typeof redis.setEx === 'function') {
         const setMethod = redis.setex ? 'setex' : 'setEx'
         await Promise.all([
-          redis[setMethod](lidKey, ttl, phoneNumber),
-          redis[setMethod](phoneKey, ttl, lid)
+          redis[setMethod](lidKey, effectiveTtl, phoneNumber),
+          redis[setMethod](phoneKey, effectiveTtl, lid)
         ])
       } else {
         await Promise.all([
-          redis.set(lidKey, phoneNumber, 'EX', ttl),
-          redis.set(phoneKey, lid, 'EX', ttl)
+          redis.set(lidKey, phoneNumber, 'EX', effectiveTtl),
+          redis.set(phoneKey, lid, 'EX', effectiveTtl)
         ])
       }
     } else {
@@ -88,19 +142,16 @@ export const storeLidMapping = async (
     const sessionLidCache = lidCache.get(sessionId)!
     const sessionPhoneCache = phoneCache.get(sessionId)!
     
-    // Implement LRU by removing oldest entries if cache is full
-    if (sessionLidCache.size >= LID_CACHE_SIZE) {
-      const firstKey = sessionLidCache.keys().next().value
-      if (firstKey) sessionLidCache.delete(firstKey)
+    if (sessionLidCache.size >= cacheLimit) {
+      trimCacheToLimit(sessionLidCache, cacheLimit - 1)
     }
-    if (sessionPhoneCache.size >= LID_CACHE_SIZE) {
-      const firstKey = sessionPhoneCache.keys().next().value
-      if (firstKey) sessionPhoneCache.delete(firstKey)
+    if (sessionPhoneCache.size >= cacheLimit) {
+      trimCacheToLimit(sessionPhoneCache, cacheLimit - 1)
     }
     
     sessionLidCache.set(lid, phoneNumber)
     sessionPhoneCache.set(phoneNumber, lid)
-    
+
   } catch (error) {
     console.error(`[LID Handler] Error storing LID mapping:`, error)
   }
@@ -116,6 +167,8 @@ export const getLidMapping = async (
   keyPrefix: string = 'baileys:session:'
 ): Promise<string | null> => {
   try {
+    const cacheLimit = getCacheLimit(sessionId)
+
     // Check memory cache first
     const sessionCache = lidCache.get(sessionId)
     if (sessionCache?.has(lid)) {
@@ -131,7 +184,11 @@ export const getLidMapping = async (
       if (!lidCache.has(sessionId)) {
         lidCache.set(sessionId, new Map())
       }
-      lidCache.get(sessionId)!.set(lid, phoneNumber)
+      const sessionLidCache = lidCache.get(sessionId)!
+      if (sessionLidCache.size >= cacheLimit) {
+        trimCacheToLimit(sessionLidCache, cacheLimit - 1)
+      }
+      sessionLidCache.set(lid, phoneNumber)
       return phoneNumber
     }
     
@@ -153,6 +210,8 @@ export const getReverseLidMapping = async (
 ): Promise<string | null> => {
   try {
     // Check memory cache first
+    const cacheLimit = getCacheLimit(sessionId)
+
     const sessionCache = phoneCache.get(sessionId)
     if (sessionCache?.has(phoneNumber)) {
       return sessionCache.get(phoneNumber)!
@@ -167,7 +226,11 @@ export const getReverseLidMapping = async (
       if (!phoneCache.has(sessionId)) {
         phoneCache.set(sessionId, new Map())
       }
-      phoneCache.get(sessionId)!.set(phoneNumber, lid)
+      const sessionPhoneCache = phoneCache.get(sessionId)!
+      if (sessionPhoneCache.size >= cacheLimit) {
+        trimCacheToLimit(sessionPhoneCache, cacheLimit - 1)
+      }
+      sessionPhoneCache.set(phoneNumber, lid)
       return lid
     }
     
@@ -230,6 +293,7 @@ export const batchGetLidMappings = async (
   const mappings = new Map<string, string | null>()
   const sessionCache = lidCache.get(sessionId)
   const uncachedLids: string[] = []
+  const cacheLimit = getCacheLimit(sessionId)
   
   // Check cache first
   for (const lid of lids) {
@@ -258,7 +322,11 @@ export const batchGetLidMappings = async (
           if (!lidCache.has(sessionId)) {
             lidCache.set(sessionId, new Map())
           }
-          lidCache.get(sessionId)!.set(uncachedLids[i], phoneNumber)
+          const sessionLidCache = lidCache.get(sessionId)!
+          if (sessionLidCache.size >= cacheLimit) {
+            trimCacheToLimit(sessionLidCache, cacheLimit - 1)
+          }
+          sessionLidCache.set(uncachedLids[i], phoneNumber)
         }
       }
     } catch (error) {
@@ -447,7 +515,7 @@ export const registerLidMapping = async (
   try {
     // Set defaults
     const keyPrefix = options?.keyPrefix || 'baileys:session:'
-    const ttl = options?.ttl || LID_MAPPING_TTL
+    const ttl = getMappingTtl(sessionId, options?.ttl)
     
     // Validate inputs
     if (!sessionId || !phoneNumber || !lid) {

@@ -72,6 +72,20 @@ export interface RedisAuthStateOptions {
    * @default true
    */
   enableLidSupport?: boolean
+
+  /**
+   * Enables lazy dual storage when sessions are resolved through alternate formats
+   * Background writes ensure future lookups hit the primary key directly
+   * @default true
+   */
+  enableLazyDualStorage?: boolean
+
+  /**
+   * Enables opportunistic dual storage for session writes when mappings exist
+   * Provides immediate parity between LID and phone based session keys
+   * @default true
+   */
+  enableOpportunisticDualStorage?: boolean
   
   /**
    * TTL for LID to phone number mappings in seconds
@@ -84,4 +98,4 @@ export interface RedisAuthStateOptions {
    * @default 10000
    */
   lidCacheSize?: number
-} 
+}
