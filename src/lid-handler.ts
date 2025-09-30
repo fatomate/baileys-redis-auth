@@ -127,39 +127,47 @@ export async function storeLidMapping(
       return
     }
 
+    const lidKey = `${keyPrefix}lid:${sessionId}:${normalizedLid}`
+    const phoneKey = `${keyPrefix}lid:reverse:${sessionId}:${normalizedPhone}`
+
     const existingPhone = await getLidMapping(redis, sessionId, normalizedLid, keyPrefix)
-    if (existingPhone) {
-      const existingNormalizedPhone = normalizeMappingKey(existingPhone)
-      if (existingNormalizedPhone !== normalizedPhone) {
-        console.warn('[LidHandler] Ignoring conflicting mapping', {
-          sessionId,
-          lid: normalizedLid,
-          newPhone: normalizedPhone,
-          existingPhone: existingPhone
-        })
-        return
-      }
+    const existingNormalizedPhone = normalizeMappingKey(existingPhone || '')
+    const existingLid = await getReverseLidMapping(redis, sessionId, normalizedPhone, keyPrefix)
+    const existingNormalizedLid = normalizeMappingKey(existingLid || '')
+
+    const cachedLidMap = lidCache.get(sessionId)
+    const cachedPhoneMap = phoneCache.get(sessionId)
+
+    if (existingNormalizedPhone && existingNormalizedPhone !== normalizedPhone) {
+      console.warn('[LidHandler] Replacing phone mapping for LID', {
+        sessionId,
+        lid: normalizedLid,
+        newPhone: normalizedPhone,
+        previousPhone: existingNormalizedPhone
+      })
+      await redis.del(lidKey)
+      await redis.del(`${keyPrefix}lid:reverse:${sessionId}:${existingNormalizedPhone}`)
+      cachedLidMap?.delete(normalizedLid)
+      cachedPhoneMap?.delete(existingNormalizedPhone)
     }
 
-    const existingLid = await getReverseLidMapping(redis, sessionId, normalizedPhone, keyPrefix)
-    if (existingLid) {
-      const existingNormalizedLid = normalizeMappingKey(existingLid)
-      if (existingNormalizedLid !== normalizedLid) {
-        console.warn('[LidHandler] Phone already mapped to different LID, skipping update', {
-          sessionId,
-          phoneNumber: normalizedPhone,
-          existingLid
-        })
-        return
-      }
+    if (existingNormalizedLid && existingNormalizedLid !== normalizedLid) {
+      console.warn('[LidHandler] Replacing LID mapping for phone', {
+        sessionId,
+        phoneNumber: normalizedPhone,
+        newLid: normalizedLid,
+        previousLid: existingNormalizedLid
+      })
+      await redis.del(`${keyPrefix}lid:${sessionId}:${existingNormalizedLid}`)
+      await redis.del(phoneKey)
+      cachedLidMap?.delete(existingNormalizedLid)
+      cachedPhoneMap?.delete(normalizedPhone)
     }
 
     const effectiveTtl = getMappingTtl(sessionId, ttl)
     const cacheLimit = getCacheLimit(sessionId)
 
     // Store in Redis
-    const lidKey = `${keyPrefix}lid:${sessionId}:${normalizedLid}`
-    const phoneKey = `${keyPrefix}lid:reverse:${sessionId}:${normalizedPhone}`
     
     // Use appropriate Redis method for setting with TTL
     if (effectiveTtl > 0) {
@@ -618,33 +626,6 @@ export const registerLidMapping = async (
         phoneNumber
       })
       return false
-    }
-
-    const existingPhone = await getLidMapping(redis, sessionId, normalizedLid, keyPrefix)
-    if (existingPhone) {
-      const existingNormalizedPhone = normalizeMappingKey(existingPhone)
-      if (existingNormalizedPhone !== normalizedPhone) {
-        console.warn('[registerLidMapping] Conflict detected for LID mapping, skipping update', {
-          sessionId,
-          lid: normalizedLid,
-          existingPhone,
-          attemptedPhone: phoneNumber
-        })
-        return false
-      }
-    }
-
-    const existingLid = await getReverseLidMapping(redis, sessionId, normalizedPhone, keyPrefix)
-    if (existingLid) {
-      const existingNormalizedLid = normalizeMappingKey(existingLid)
-      if (existingNormalizedLid !== normalizedLid) {
-        console.warn('[registerLidMapping] Phone already linked to different LID, skipping update', {
-          sessionId,
-          phoneNumber: normalizedPhone,
-          existingLid
-        })
-        return false
-      }
     }
 
     // Store the bidirectional mapping (refreshes TTL when mapping matches)
