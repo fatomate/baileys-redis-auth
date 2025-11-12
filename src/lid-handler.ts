@@ -562,6 +562,158 @@ export const cleanupLidCache = (sessionId: string): void => {
 }
 
 /**
+ * Migrates legacy LID cache keys (lid:/lid:reverse:) into the Baileys v7 'lid-mapping' dataset.
+ * This function scans Redis for the legacy keys and writes canonical entries under
+ *   `${keyPrefix}${sessionId}:lid-mapping-<pnUser>` => `<lidUser>` and
+ *   `${keyPrefix}${sessionId}:lid-mapping-<lidUser>_reverse` => `<pnUser>`.
+ *
+ * Options:
+ * - dryRun: do not write, only return counts
+ * - batchSize: how many entries to write per pipeline batch (default 250)
+ * - ttlSeconds: optional TTL for the new keys; if omitted, no expiration is set
+ * - enableLog: verbose logging
+ */
+export const migrateLegacyLidCacheToLidMapping = async (
+  redis: any,
+  sessionId: string,
+  keyPrefix: string = 'baileys:session:',
+  options?: {
+    dryRun?: boolean
+    batchSize?: number
+    ttlSeconds?: number
+    enableLog?: boolean
+  }
+): Promise<{ scanned: number; migrated: number; skipped: number }> => {
+  const dryRun = !!options?.dryRun
+  const batchSize = options?.batchSize && options.batchSize > 0 ? Math.floor(options.batchSize) : 250
+  const ttlSeconds = options?.ttlSeconds
+  const log = (...args: any[]) => {
+    if (options?.enableLog) console.log('[LID Migration]', ...args)
+  }
+
+  // Helper: build the final Redis key for the canonical dataset
+  const sessionKey = `${keyPrefix}${sessionId}`
+  const mkCanonKey = (id: string) => `${sessionKey}:lid-mapping-${id}`
+
+  // Helper: parse numeric user from jid (strip :device and domain)
+  const parseUser = (jid: string | null | undefined): string | null => {
+    if (!jid) return null
+    const normalized = normalizeMappingKey(jid) // remove :device if present
+    const match = normalized.match(/^(\d+)/)
+    return match ? match[1] : null
+  }
+
+  // Collect pairs from forward keys first: lid:{session}:{lidJid} -> phoneJid
+  const forwardPattern = `${keyPrefix}lid:${sessionId}:*`
+  const reversePattern = `${keyPrefix}lid:reverse:${sessionId}:*`
+
+  const pairs = new Map<string, string>() // pnUser -> lidUser
+  let scanned = 0
+
+  // Scan helper
+  const scanKeys = async (pattern: string): Promise<string[]> => {
+    const keys: string[] = []
+    let cursor = '0'
+    do {
+      // node-redis v4 returns [cursor, keys[]]
+      // ioredis returns same shape
+      const res = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 500)
+      cursor = res[0]
+      for (const k of res[1]) keys.push(k)
+    } while (cursor !== '0')
+    return keys
+  }
+
+  const forwardKeys = await scanKeys(forwardPattern)
+  const reverseKeys = await scanKeys(reversePattern)
+  scanned = forwardKeys.length + reverseKeys.length
+  log(`scanned keys: forward=${forwardKeys.length}, reverse=${reverseKeys.length}`)
+
+  // Process forward keys
+  if (forwardKeys.length) {
+    const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
+    forwardKeys.forEach(k => pipeline.get(k))
+    const results = await pipeline.exec()
+    for (let i = 0; i < forwardKeys.length; i++) {
+      const lidJid = forwardKeys[i].split(':').slice(-1)[0] // suffix after last :
+      const phoneJid = results[i]?.[1] as string | null
+      if (!lidJid || !phoneJid) continue
+      const pnUser = parseUser(phoneJid)
+      const lidUser = parseUser(lidJid)
+      if (pnUser && lidUser) {
+        if (!pairs.has(pnUser)) pairs.set(pnUser, lidUser)
+      }
+    }
+  }
+
+  // Process reverse keys (phone -> lid) to fill any gaps
+  if (reverseKeys.length) {
+    const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
+    reverseKeys.forEach(k => pipeline.get(k))
+    const results = await pipeline.exec()
+    for (let i = 0; i < reverseKeys.length; i++) {
+      const phoneJid = reverseKeys[i].split(':').slice(-1)[0]
+      const lidJid = results[i]?.[1] as string | null
+      if (!lidJid || !phoneJid) continue
+      const pnUser = parseUser(phoneJid)
+      const lidUser = parseUser(lidJid)
+      if (pnUser && lidUser) {
+        if (!pairs.has(pnUser)) pairs.set(pnUser, lidUser)
+      }
+    }
+  }
+
+  let migrated = 0
+  let skipped = 0
+
+  if (pairs.size === 0) {
+    log('no legacy pairs found to migrate')
+    return { scanned, migrated: 0, skipped: 0 }
+  }
+
+  if (dryRun) {
+    log(`dry-run: would migrate ${pairs.size} pairs`)
+    return { scanned, migrated: 0, skipped: pairs.size }
+  }
+
+  // Write canonical entries in batches
+  const entries = Array.from(pairs.entries()) // [pnUser, lidUser]
+  for (let i = 0; i < entries.length; i += batchSize) {
+    const batch = entries.slice(i, i + batchSize)
+    const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
+    for (const [pnUser, lidUser] of batch) {
+      const fwdKey = mkCanonKey(pnUser)
+      const revKey = mkCanonKey(`${lidUser}_reverse`)
+      if (typeof ttlSeconds === 'number' && ttlSeconds > 0) {
+        // use setex variants depending on client
+        if (typeof redis.setEx === 'function') {
+          pipeline.setEx(fwdKey, ttlSeconds, lidUser)
+          pipeline.setEx(revKey, ttlSeconds, pnUser)
+        } else if (typeof redis.setex === 'function') {
+          pipeline.setex(fwdKey, ttlSeconds, lidUser)
+          pipeline.setex(revKey, ttlSeconds, pnUser)
+        } else if (typeof redis.set === 'function') {
+          pipeline.set(fwdKey, lidUser, 'EX', ttlSeconds)
+          pipeline.set(revKey, pnUser, 'EX', ttlSeconds)
+        } else {
+          // fallback: no TTL
+          pipeline.set(fwdKey, lidUser)
+          pipeline.set(revKey, pnUser)
+        }
+      } else {
+        pipeline.set(fwdKey, lidUser)
+        pipeline.set(revKey, pnUser)
+      }
+    }
+    await pipeline.exec()
+    migrated += batch.length
+  }
+
+  log(`migrated pairs: ${migrated}`)
+  return { scanned, migrated, skipped }
+}
+
+/**
  * Get statistics about LID mappings for a session
  */
 export const getLidStats = async (

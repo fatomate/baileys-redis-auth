@@ -12,6 +12,7 @@ A **Redis-based authentication state manager** for the [Baileys](https://github.
 - **🔒 Session Isolation** - Separate cache and connection pools per session
 - **⚡ Performance Optimized** - Designed for high-throughput applications
 - **🆕 @lid Format Support** - Simple mapping between WhatsApp's @lid and phone formats (v1.1.0+)
+- **✅ Baileys v7 Compatibility (V2)** - Stores new Signal key types including `sender-key-memory`, `device-list`, and `lid-mapping` with transactional semantics
 
 ## Installation
 
@@ -112,7 +113,7 @@ async function advancedSetup() {
 | `cacheTTL` | `number` | `30000` | Cache TTL in milliseconds |
 | `memoryEfficient` | `boolean` | `true` | Memory optimization mode |
 | `enableLidSupport` | `boolean` | `true` | Enable @lid format support |
-| `lidMappingTTL` | `number` | `604800` | LID mapping TTL in seconds |
+| `lidMappingTTL` | `number` | `604800` | Legacy LID cache TTL in seconds (for v6 compatibility) |
 | `lidCacheSize` | `number` | `10000` | Max LID mappings in cache |
 
 ## 🔧 Redis Client Compatibility
@@ -514,3 +515,34 @@ Thus, the maintainers of the project can't be held liable for any potential misu
 5. Submit a pull request
 
 Issues and feature requests are welcome! 
+### TTL behavior
+
+- Session TTL (`ttl`) applies to all key categories written via the Baileys key store, including `device-list`. In other words, `device-list` and `session` TTLs stay in sync by default. If you need per-type overrides, use your Redis policy (e.g., keyspace notifications or separate prefixes) — the library does not yet expose per-type TTL knobs for v2.
+
+## 🔁 Migrating to Baileys v7 `lid-mapping`
+
+V2 includes a helper to migrate the legacy LID cache keys (`lid:` / `lid:reverse:`) into the canonical Baileys v7 `lid-mapping` dataset. Run this once per session after upgrading:
+
+```ts
+import { createClient } from 'redis'
+import { migrateLegacyLidCacheToLidMapping } from '@baileys/redis-auth-state'
+
+async function migrate() {
+  const redis = createClient({ url: 'redis://localhost:6379' })
+  await redis.connect()
+
+  const res = await migrateLegacyLidCacheToLidMapping(redis, 'my-session', 'baileys:session:', {
+    dryRun: false,        // set true to preview only
+    batchSize: 250,
+    ttlSeconds: undefined, // inherit default key behavior
+    enableLog: true
+  })
+
+  console.log('Migration result:', res)
+  await redis.quit()
+}
+
+migrate().catch(console.error)
+```
+
+After migration, you may optionally clean up the legacy cache with `cleanupLidMappings`.
