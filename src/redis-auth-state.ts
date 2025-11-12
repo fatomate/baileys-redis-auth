@@ -404,9 +404,13 @@ const setWithExpiration = async (redis: any, key: string, value: string, ttl: nu
  * High-performance Redis-based authentication state storage for Baileys.
  * Optimized for maximum speed and minimal latency.
  */
+// Import Baileys v7 types only for typing (no runtime import)
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import type { AuthenticationState, SignalKeyStore } from 'baileys'
+
 export const useRedisAuthState = async (
   options: RedisAuthStateOptions
-): Promise<{ state: any; saveCreds: () => Promise<void> }> => {
+): Promise<{ state: AuthenticationState; saveCreds: () => Promise<void> }> => {
   const {
     redis: redisOptions,
     keyPrefix = 'baileys:session:',
@@ -619,7 +623,10 @@ export const useRedisAuthState = async (
     idValue: string,
     payload: any
   ): void => {
-    for (const variant of expandKeyVariants(idValue)) {
+    // Only expand variants for session category in v2; other categories must be stored exactly as written
+    const shouldExpand = enableLidSupport && category === 'session'
+    const variants = shouldExpand ? expandKeyVariants(idValue) : new Set<string>([idValue])
+    for (const variant of variants) {
       const opKey = `${category}-${variant}`
       if (!(opKey in target)) {
         target[opKey] = payload

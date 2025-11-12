@@ -1,6 +1,6 @@
 {
   "name": "@baileys/redis-auth-state",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "High-performance Redis-based authentication state manager for Baileys WhatsApp library",
   "keywords": [
     "baileys",
@@ -38,9 +38,9 @@
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "baileys": ">=6.0.0"
+    "baileys": "^7.0.0"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=20.0.0"
   }
 } 
