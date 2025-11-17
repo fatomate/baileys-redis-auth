@@ -38,7 +38,7 @@
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "baileys": "^7.0.0"
+    "baileys": "^7.0.0-rc.6"
   },
   "engines": {
     "node": ">=20.0.0"
