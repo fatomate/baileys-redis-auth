@@ -1,4 +1,4 @@
-const { useRedisAuthState, cleanupSession, cleanupSessionWithOptions } = require('@baileys/redis-auth-state')
+import { useRedisAuthState, cleanupSession, cleanupSessionWithOptions } from '@baileys/redis-auth-state'
 
 async function demonstrateCleanup() {
   const authOptions = {
@@ -73,6 +73,4 @@ async function productionExample() {
 }
 
 // Run the demo
-if (require.main === module) {
-  demonstrateCleanup().catch(console.error)
-} 
+demonstrateCleanup().catch(console.error)

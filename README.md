@@ -1,9 +1,13 @@
-# Baileys Redis Auth State
+# Baileys Redis Auth State (ESM)
+
+> **⚠️ This is the `esm` branch** — a pure ESM build for Baileys v7.x (`^7.0.0-rc.9`), which is itself a pure ESM package.
+> If you need CommonJS support (Baileys v6 or earlier v7 RCs), use the [`main` branch](https://github.com/fatomate/baileys-redis-auth/tree/main).
 
 A **Redis-based authentication state manager** for the [Baileys](https://github.com/WhiskeySockets/Baileys) WhatsApp library. This package provides a drop-in replacement for `useMultiFileAuthState` that stores session data in Redis, making it ideal for production deployments and multi-instance setups.
 
 ## ✨ Features
 
+- **📦 Pure ESM** - Native ES Modules, compatible with Baileys v7 ESM
 - **🔄 Redis Storage** - Store session data in Redis for persistence and scalability
 - **📦 Batch Operations** - Optimized bulk read/write operations
 - **🔄 Connection Pooling** - Efficient Redis connection management
@@ -11,20 +15,23 @@ A **Redis-based authentication state manager** for the [Baileys](https://github.
 - **🗜️ Data Serialization** - Efficient JSON serialization with Buffer support
 - **🔒 Session Isolation** - Separate cache and connection pools per session
 - **⚡ Performance Optimized** - Designed for high-throughput applications
-- **🆕 @lid Format Support** - Simple mapping between WhatsApp's @lid and phone formats (v1.1.0+)
-- **✅ Baileys v7 Compatibility (V2)** - Stores new Signal key types including `sender-key-memory`, `device-list`, and `lid-mapping` with transactional semantics
+- **🆕 @lid Format Support** - Simple mapping between WhatsApp's @lid and phone formats
+- **✅ Baileys v7 Compatibility** - Stores new Signal key types including `sender-key-memory`, `device-list`, and `lid-mapping` with transactional semantics
 
 ## Installation
 
 ```bash
-npm install https://github.com/fatomate/baileys-redis-auth.git
+npm install https://github.com/fatomate/baileys-redis-auth.git#esm
 # or
-yarn add https://github.com/fatomate/baileys-redis-auth.git
+yarn add https://github.com/fatomate/baileys-redis-auth.git#esm
 ```
 
 ## Prerequisites
 
-You need Redis 4.0+ running:
+- **Node.js >= 20.0.0**
+- **ESM project** — your `package.json` must have `"type": "module"` or use `.mjs` files
+- **Baileys v7** (`^7.0.0-rc.9`) — installed as a peer dependency
+- **Redis 4.0+** running:
 
 ```bash
 # Start Redis server
@@ -417,7 +424,7 @@ try {
 } catch (error) {
   console.error('Failed to initialize Redis auth state:', error)
   // Fallback to file-based auth state
-  const { useMultiFileAuthState } = require('baileys')
+  const { useMultiFileAuthState } = await import('baileys')
   const { state, saveCreds } = await useMultiFileAuthState('./auth_info')
 }
 ```
@@ -505,6 +512,24 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 Thus, the maintainers of the project can't be held liable for any potential misuse of this project.
+
+## 🔀 Migrating from v2 (CJS) to v3 (ESM)
+
+This branch (`esm`) is v3 — a pure ESM package. If you're upgrading from v2:
+
+1. Ensure your project uses `"type": "module"` in `package.json` (or use `.mjs` files)
+2. Replace any `require()` calls with `import`:
+   ```typescript
+   // Before (CJS)
+   const { useRedisAuthState } = require('@baileys/redis-auth-state')
+   
+   // After (ESM)
+   import { useRedisAuthState } from '@baileys/redis-auth-state'
+   ```
+3. Update Baileys to `^7.0.0-rc.9`
+4. Node.js 20+ is required
+
+If you cannot migrate to ESM, stay on the [`main` branch](https://github.com/fatomate/baileys-redis-auth/tree/main) (v2).
 
 ## Contributing
 

@@ -1,22 +1,19 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "commonjs",
+    "module": "ESNext",
     "lib": ["ES2020", "DOM"],
     "outDir": "./lib",
     "rootDir": "./src",
     "strict": true,
-    "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
     "types": ["node"]
   },
   "include": [

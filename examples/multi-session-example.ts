@@ -1,10 +1,10 @@
 /**
- * Multi-Session WhatsApp Bot Example
+ * Multi-Session WhatsApp Bot Example (ESM)
  * Demonstrates safe handling of multiple sessions without auth state mixing
  */
 
 import makeWASocket from 'baileys'
-import { useRedisAuthState, cleanupSession } from '../src/index'
+import { useRedisAuthState, cleanupSession } from '../src/index.js'
 
 interface SessionManager {
   sessionId: string
@@ -240,8 +240,6 @@ async function main() {
 }
 
 // Run the example
-if (require.main === module) {
-  main().catch(console.error)
-}
+main().catch(console.error)
 
 export { MultiSessionBot } 

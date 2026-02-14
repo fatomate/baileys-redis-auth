@@ -1,4 +1,5 @@
-import { RedisAuthStateOptions } from './types'
+import type { RedisAuthStateOptions } from './types'
+import type { AuthenticationState, SignalKeyStore } from 'baileys'
 import { 
   cleanupLidCache,
   cleanupLidMappings,
@@ -59,14 +60,16 @@ const detectRedisClient = (redis: any): { type: 'redis' | 'ioredis' | 'unknown';
  */
 const createRedisClient = async (redisOptions: any): Promise<any> => {
   try {
-    // Try ioredis first
-    const Redis = eval('require')('ioredis')
+    // Try ioredis first (optional dependency)
+    // @ts-ignore — ioredis may not be installed
+    const ioredisModule = await import('ioredis')
+    const Redis = ioredisModule.default ?? ioredisModule
     const client = new Redis(redisOptions)
     return client
   } catch (error: any) {
     // Fallback to redis
     try {
-      const { createClient } = eval('require')('redis')
+      const { createClient } = await import('redis')
       const client = createClient(redisOptions)
       await client.connect()
       return client
@@ -353,13 +356,8 @@ const fastSerialize = (data: any): string => {
 const fastDeserialize = (data: string): any => {
   return JSON.parse(data, (key, value) => {
     if (typeof value === 'object' && value !== null && value.type === 'Buffer') {
-      // Check if Buffer exists and create buffer safely
-      try {
-        const BufferGlobal = eval('typeof Buffer !== "undefined" ? Buffer : null')
-        return BufferGlobal ? BufferGlobal.from(value.data) : new Uint8Array(value.data)
-      } catch {
-        return new Uint8Array(value.data)
-      }
+      // Buffer is always available in Node.js >= 20
+      return Buffer.from(value.data)
     }
     return value
   })
@@ -404,9 +402,6 @@ const setWithExpiration = async (redis: any, key: string, value: string, ttl: nu
  * High-performance Redis-based authentication state storage for Baileys.
  * Optimized for maximum speed and minimal latency.
  */
-// Import Baileys v7 types only for typing (no runtime import)
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import type { AuthenticationState, SignalKeyStore } from 'baileys'
 
 export const useRedisAuthState = async (
   options: RedisAuthStateOptions
@@ -789,7 +784,7 @@ export const useRedisAuthState = async (
     // Try to use Baileys initAuthCreds if available
     if (Object.keys(creds).length === 0) {
       try {
-        const { initAuthCreds } = eval('require')('baileys')
+        const { initAuthCreds } = await import('baileys')
         creds = initAuthCreds()
       } catch (error: any) {
         // Baileys not available, use empty object
@@ -806,11 +801,21 @@ export const useRedisAuthState = async (
       creds,
       keys: {
         get: async (type: string, ids: string[]) => {
+          // Pre-load proto for app-state-sync-key deserialization
+          let appStateSyncProto: any = null
+          if (type === 'app-state-sync-key') {
+            try {
+              const baileys = await import('baileys')
+              appStateSyncProto = baileys.proto
+            } catch {
+              // Baileys proto not available, will return raw values
+            }
+          }
+
           const toAppStateSyncValue = (raw: any) => {
-            if (type === 'app-state-sync-key' && raw) {
+            if (type === 'app-state-sync-key' && raw && appStateSyncProto) {
               try {
-                const { proto } = eval('require')('baileys/WAProto')
-                return proto.Message.AppStateSyncKeyData.fromObject(raw)
+                return appStateSyncProto.Message.AppStateSyncKeyData.fromObject(raw)
               } catch (error: any) {
                 return raw
               }
