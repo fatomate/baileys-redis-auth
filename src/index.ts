@@ -1,6 +1,6 @@
-export { useRedisAuthState, cleanupSession, cleanupSessionWithOptions } from './redis-auth-state'
-export type { RedisAuthStateOptions } from './types'
-export { BufferJSON, MemoryCache, CompressionUtils, serialize, deserialize } from './utils'
+export { useRedisAuthState, cleanupSession, cleanupSessionWithOptions } from './redis-auth-state.js'
+export type { RedisAuthStateOptions } from './types.js'
+export { BufferJSON, MemoryCache, CompressionUtils, serialize, deserialize } from './utils.js'
 export { 
   isLidFormat, 
   isPhoneFormat,
@@ -17,4 +17,4 @@ export {
   registerLidMapping,
   configureLidHandler,
   migrateLegacyLidCacheToLidMapping
-} from './lid-handler'
+} from './lid-handler.js'

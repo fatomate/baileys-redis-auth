@@ -4,6 +4,7 @@
  */
 
 import makeWASocket from 'baileys'
+import { pathToFileURL } from 'node:url'
 import { useRedisAuthState, cleanupSession } from '../src/index.js'
 
 interface SessionManager {
@@ -79,7 +80,7 @@ class MultiSessionBot {
       })
 
       // Handle incoming messages for this session
-      socket.ev.on('messages.new', (messages) => {
+      socket.ev.on('messages.upsert', ({ messages }) => {
         for (const message of messages) {
           console.log(`📨 [${sessionId}] New message:`, message.key.remoteJid)
           // Process message for this specific session
@@ -239,7 +240,9 @@ async function main() {
   }
 }
 
-// Run the example
-main().catch(console.error)
+// Run the example when executed directly
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(console.error)
+}
 
 export { MultiSessionBot } 

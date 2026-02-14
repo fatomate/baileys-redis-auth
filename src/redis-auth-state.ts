@@ -1,5 +1,5 @@
-import type { RedisAuthStateOptions } from './types'
-import type { AuthenticationState, SignalKeyStore } from 'baileys'
+import type { RedisAuthStateOptions } from './types.js'
+import type { AuthenticationState } from 'baileys'
 import { 
   cleanupLidCache,
   cleanupLidMappings,
@@ -9,7 +9,7 @@ import {
   isLidFormat,
   isPhoneFormat,
   storeLidMapping
-} from './lid-handler'
+} from './lid-handler.js'
 
 // Per-session memory caches for better isolation
 const sessionCaches = new Map<string, Map<string, { data: any; timestamp: number }>>()
@@ -55,14 +55,47 @@ const detectRedisClient = (redis: any): { type: 'redis' | 'ioredis' | 'unknown';
   }
 }
 
+const getPipelineResultValue = (entry: any): any => {
+  return Array.isArray(entry) ? entry[1] : entry
+}
+
+const parseScanResponse = (response: any): { cursor: string; keys: string[] } => {
+  if (Array.isArray(response)) {
+    return {
+      cursor: String(response[0] ?? '0'),
+      keys: Array.isArray(response[1]) ? response[1] : []
+    }
+  }
+
+  if (response && typeof response === 'object') {
+    return {
+      cursor: String(response.cursor ?? '0'),
+      keys: Array.isArray(response.keys) ? response.keys : []
+    }
+  }
+
+  return { cursor: '0', keys: [] }
+}
+
+const chunkArray = <T>(items: T[], size: number): T[][] => {
+  const normalizedSize = Math.max(1, size)
+  const chunks: T[][] = []
+
+  for (let i = 0; i < items.length; i += normalizedSize) {
+    chunks.push(items.slice(i, i + normalizedSize))
+  }
+
+  return chunks
+}
+
 /**
  * Create Redis client based on options and type
  */
 const createRedisClient = async (redisOptions: any): Promise<any> => {
   try {
     // Try ioredis first (optional dependency)
-    // @ts-ignore — ioredis may not be installed
-    const ioredisModule = await import('ioredis')
+    const ioredisModuleName = 'ioredis'
+    const ioredisModule = await import(ioredisModuleName)
     const Redis = ioredisModule.default ?? ioredisModule
     const client = new Redis(redisOptions)
     return client
@@ -158,14 +191,24 @@ export const cleanupSession = async (
         for await (const keys of stream) {
           keysToDelete.push(...keys)
         }
+      } else if (typeof redis.scanIterator === 'function') {
+        // node-redis v4+ iterator API
+        for await (const keys of redis.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+          if (Array.isArray(keys)) {
+            keysToDelete.push(...keys)
+          } else {
+            keysToDelete.push(keys)
+          }
+        }
       } else {
-        // For node-redis, use SCAN manually
-        let cursor = 0
+        // Fallback SCAN handling for generic clients
+        let cursor = '0'
         do {
-          const result = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100)
-          cursor = parseInt(result[0])
-          keysToDelete.push(...result[1])
-        } while (cursor !== 0)
+          const scanResponse = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100)
+          const { cursor: nextCursor, keys } = parseScanResponse(scanResponse)
+          cursor = nextCursor
+          keysToDelete.push(...keys)
+        } while (cursor !== '0')
       }
       
       // Delete all found keys in batches
@@ -202,17 +245,6 @@ export const cleanupSession = async (
     }
   }
 }
-
-// High-performance memory cache
-const memoryCache = new Map<string, { data: any; timestamp: number }>()
-const CACHE_TTL = 30000 // 30 seconds
-
-// Connection pool management
-const connectionPools = new Map<string, any[]>()
-
-// Batch operation queue
-const batchQueue = new Map<string, Array<{ type: 'get' | 'set' | 'del'; key: string; value?: any; resolve: Function; reject: Function }>>()
-const batchTimers = new Map<string, any>()
 
 /**
  * High-performance Redis connection pool with multi-client support
@@ -271,65 +303,6 @@ class RedisConnectionPool {
     this.connections = []
     this.availableConnections = []
     this.usedConnections.clear()
-  }
-}
-
-/**
- * High-performance batch operation manager
- */
-class BatchOperationManager {
-  private redis: any
-  private batchSize: number
-  private flushDelay: number
-
-  constructor(redis: any, batchSize: number = 100, flushDelay: number = 10) {
-    this.redis = redis
-    this.batchSize = batchSize
-    this.flushDelay = flushDelay
-  }
-
-  async executeBatch(sessionKey: string, operations: Array<{ type: 'get' | 'set' | 'del'; key: string; value?: any; resolve: Function; reject: Function }>): Promise<void> {
-    if (operations.length === 0) return
-
-    try {
-      const pipeline = this.redis.multi ? this.redis.multi() : this.redis.pipeline ? this.redis.pipeline() : this.redis.multi()
-      const getOperations: Array<{ key: string; resolve: Function; reject: Function }> = []
-
-      for (const op of operations) {
-        switch (op.type) {
-          case 'get':
-            pipeline.get(op.key)
-            getOperations.push({ key: op.key, resolve: op.resolve, reject: op.reject })
-            break
-          case 'set':
-            pipeline.set(op.key, op.value)
-            break
-          case 'del':
-            pipeline.del(op.key)
-            break
-        }
-      }
-
-      const results = await pipeline.exec()
-      
-      // Process GET results
-      let getIndex = 0
-      for (const op of operations) {
-        if (op.type === 'get') {
-          const result = results[getIndex]
-          if (result[0]) {
-            op.reject(result[0])
-          } else {
-            op.resolve(result[1])
-          }
-          getIndex++
-        } else {
-          op.resolve(true)
-        }
-      }
-    } catch (error) {
-      operations.forEach(op => op.reject(error))
-    }
   }
 }
 
@@ -464,11 +437,6 @@ export const useRedisAuthState = async (
   }
 
   const sessionKey = `${keyPrefix}${sessionId}`
-  let batchManager: BatchOperationManager | null = null
-  
-  if (enableBatching) {
-    batchManager = new BatchOperationManager(redis, batchSize)
-  }
 
   const stripDeviceSuffix = (jid: string): string => jid.replace(/([:.]\d+)$/, '')
 
@@ -718,16 +686,34 @@ export const useRedisAuthState = async (
     // Batch fetch missing keys
     if (missingKeys.length > 0) {
       try {
-        const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
-        redisKeys.forEach(key => pipeline.get(key))
-        const results = await pipeline.exec()
+        if (enableBatching) {
+          const missingKeyChunks = chunkArray(missingKeys, batchSize)
+          const redisKeyChunks = chunkArray(redisKeys, batchSize)
 
-        for (let i = 0; i < missingKeys.length; i++) {
-          const data = results[i][1]
-          if (data) {
-            const parsed = fastDeserialize(data)
-            result[missingKeys[i]] = parsed
-            setCachedData(redisKeys[i], parsed)
+          for (let chunkIndex = 0; chunkIndex < missingKeyChunks.length; chunkIndex++) {
+            const currentMissingKeys = missingKeyChunks[chunkIndex]
+            const currentRedisKeys = redisKeyChunks[chunkIndex]
+            const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
+            currentRedisKeys.forEach(key => pipeline.get(key))
+
+            const pipelineResults = await pipeline.exec()
+            for (let i = 0; i < currentMissingKeys.length; i++) {
+              const data = getPipelineResultValue(pipelineResults?.[i])
+              if (data) {
+                const parsed = fastDeserialize(data)
+                result[currentMissingKeys[i]] = parsed
+                setCachedData(currentRedisKeys[i], parsed)
+              }
+            }
+          }
+        } else {
+          for (let i = 0; i < missingKeys.length; i++) {
+            const data = await redis.get(redisKeys[i])
+            if (data) {
+              const parsed = fastDeserialize(data)
+              result[missingKeys[i]] = parsed
+              setCachedData(redisKeys[i], parsed)
+            }
           }
         }
       } catch (error) {
@@ -741,39 +727,63 @@ export const useRedisAuthState = async (
   // High-performance bulk write operation
   const bulkWrite = async (data: { [key: string]: any }): Promise<void> => {
     const clientInfo = detectRedisClient(redis)
-    const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
-    
-    for (const [key, value] of Object.entries(data)) {
-      const redisKey = getRedisKey(key)
-      if (value !== null && value !== undefined) {
-        const serializedData = fastSerialize(value)
-        if (ttl && ttl > 0) {
-          // Use client-specific method for setting expiration in pipeline
-          if (clientInfo.type === 'ioredis') {
-            pipeline.setex(redisKey, ttl, serializedData)
-          } else if (clientInfo.type === 'redis') {
-            if (typeof redis.setEx === 'function') {
-              pipeline.setEx(redisKey, ttl, serializedData)
-            } else if (typeof redis.setex === 'function') {
-              pipeline.setex(redisKey, ttl, serializedData)
+    const entries = Object.entries(data)
+
+    if (enableBatching) {
+      const entryChunks = chunkArray(entries, batchSize)
+
+      for (const entryChunk of entryChunks) {
+        const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
+
+        for (const [key, value] of entryChunk) {
+          const redisKey = getRedisKey(key)
+          if (value !== null && value !== undefined) {
+            const serializedData = fastSerialize(value)
+            if (ttl && ttl > 0) {
+              // Use client-specific method for setting expiration in pipeline
+              if (clientInfo.type === 'ioredis') {
+                pipeline.setex(redisKey, ttl, serializedData)
+              } else if (clientInfo.type === 'redis') {
+                if (typeof redis.setEx === 'function') {
+                  pipeline.setEx(redisKey, ttl, serializedData)
+                } else if (typeof redis.setex === 'function') {
+                  pipeline.setex(redisKey, ttl, serializedData)
+                } else {
+                  // Fallback to set with EX option
+                  pipeline.set(redisKey, serializedData, 'EX', ttl)
+                }
+              } else {
+                pipeline.set(redisKey, serializedData, 'EX', ttl)
+              }
             } else {
-              // Fallback to set with EX option
-              pipeline.set(redisKey, serializedData, 'EX', ttl)
+              pipeline.set(redisKey, serializedData)
             }
+            setCachedData(redisKey, value)
           } else {
-            pipeline.set(redisKey, serializedData, 'EX', ttl)
+            pipeline.del(redisKey)
+            sessionCache.delete(redisKey)
           }
-        } else {
-          pipeline.set(redisKey, serializedData)
         }
-        setCachedData(redisKey, value)
-      } else {
-        pipeline.del(redisKey)
-        sessionCache.delete(redisKey)
+
+        await pipeline.exec()
+      }
+    } else {
+      for (const [key, value] of entries) {
+        const redisKey = getRedisKey(key)
+        if (value !== null && value !== undefined) {
+          const serializedData = fastSerialize(value)
+          if (ttl && ttl > 0) {
+            await setWithExpiration(redis, redisKey, serializedData, ttl)
+          } else {
+            await redis.set(redisKey, serializedData)
+          }
+          setCachedData(redisKey, value)
+        } else {
+          await redis.del(redisKey)
+          sessionCache.delete(redisKey)
+        }
       }
     }
-
-    await pipeline.exec()
   }
 
   // Load or initialize credentials

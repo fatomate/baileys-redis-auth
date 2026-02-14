@@ -13,13 +13,13 @@
     "high-speed",
     "esm"
   ],
-  "homepage": "https://github.com/your-username/baileys-redis-auth",
+  "homepage": "https://github.com/fatomate/baileys-redis-auth",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-username/baileys-redis-auth.git"
+    "url": "git+https://github.com/fatomate/baileys-redis-auth.git"
   },
   "license": "MIT",
-  "author": "Your Name",
+  "author": "fatomate",
   "exports": {
     ".": {
       "types": "./lib/index.d.ts",
