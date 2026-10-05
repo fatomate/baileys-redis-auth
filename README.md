@@ -22,10 +22,10 @@ A **Redis-based authentication state manager** for the [Baileys](https://github.
 - **Rollback.** 3.0.0 can still read everything 3.1.0 writes, so reverting keeps everyone paired. It also brings back the corruption, and its alias reads can resurrect sessions 3.1.0 deleted. Prefer keeping 3.1.0 when rolling back unrelated changes.
 - **Known Baileys 7.0.0-rc14 limitations (not fixed here).** The store now raises `AUTH_STORE_UNAVAILABLE`, but Baileys itself still loses that signal in places. 3.0.0 behaved the same or worse.
   - `loadSession`/`validateSession` turn any read error into "no session", so a transient read failure while Baileys sets up a session can replace that contact's ratchet history.
-  - `migrateSession` marks a device as migrated in its private cache before the commit, so a migration whose commit failed is not retried until the socket is recreated.
+  - `migrateSession` marks a device as migrated in its private cache before the commit, so after a failed commit the retry is skipped while that cache entry remains. Recreating the socket clears it; otherwise the entry expires after its three-day TTL.
   - Hosted (device 99) PN→LID migration looks up the wrong session key and does not run.
 
-  These are tracked as a Baileys patch in WAB-821.
+  These are tracked as a Baileys patch in [WAB-821](https://linear.app/teamfames/issue/WAB-821).
 - **Ignored options.** `compression`, `enableBatching`, `memoryEfficient`, `enableLidSupport`, `enableLazyDualStorage`, `enableOpportunisticDualStorage`, `lidMappingTTL` and `lidCacheSize` are accepted and ignored.
 
 ## ✨ Features
