@@ -1,15 +1,7 @@
 import type { RedisAuthStateOptions } from './types.js'
+import { initAuthCreds, proto } from 'baileys'
 import type { AuthenticationState } from 'baileys'
-import { 
-  cleanupLidCache,
-  cleanupLidMappings,
-  configureLidHandler,
-  getLidMapping,
-  getReverseLidMapping,
-  isLidFormat,
-  isPhoneFormat,
-  storeLidMapping
-} from './lid-handler.js'
+import { cleanupLidCache, cleanupLidMappings } from './lid-handler.js'
 
 // Per-session memory caches for better isolation
 const sessionCaches = new Map<string, Map<string, { data: any; timestamp: number }>>()
@@ -53,10 +45,6 @@ const detectRedisClient = (redis: any): { type: 'redis' | 'ioredis' | 'unknown';
       hasMulti: false
     }
   }
-}
-
-const getPipelineResultValue = (entry: any): any => {
-  return Array.isArray(entry) ? entry[1] : entry
 }
 
 const parseScanResponse = (response: any): { cursor: string; keys: string[] } => {
@@ -307,75 +295,143 @@ class RedisConnectionPool {
 }
 
 /**
- * Fast serialization without external dependencies
+ * Thrown when the auth store cannot prove what Redis holds: a failed or unparsable read,
+ * a failed or partially failed write, or stored credentials that are not valid creds.
+ * Callers must treat it as "store unavailable", never as "no auth".
  */
-const fastSerialize = (data: any): string => {
-  return JSON.stringify(data, (key, value) => {
-    if (typeof value === 'object' && value !== null) {
-      if (value.constructor?.name === 'Buffer' || value.type === 'Buffer') {
-        return {
-          type: 'Buffer',
-          data: Array.from(value.data || value)
-        }
-      }
-    }
-    return value
-  })
-}
+export class AuthStoreUnavailableError extends Error {
+  readonly code = 'AUTH_STORE_UNAVAILABLE'
 
-/**
- * Fast deserialization
- */
-const fastDeserialize = (data: string): any => {
-  return JSON.parse(data, (key, value) => {
-    if (typeof value === 'object' && value !== null && value.type === 'Buffer') {
-      // Buffer is always available in Node.js >= 20
-      return Buffer.from(value.data)
+  constructor(message: string, cause?: unknown) {
+    super(message)
+    this.name = 'AuthStoreUnavailableError'
+    if (cause !== undefined) {
+      ;(this as any).cause = cause
     }
-    return value
-  })
-}
-
-/**
- * Safely set Redis key with expiration, supporting both redis and ioredis
- */
-const setWithExpiration = async (redis: any, key: string, value: string, ttl: number): Promise<void> => {
-  const clientInfo = detectRedisClient(redis)
-  
-  try {
-    if (clientInfo.type === 'ioredis') {
-      // ioredis uses setex (lowercase)
-      await redis.setex(key, ttl, value)
-    } else if (clientInfo.type === 'redis') {
-      // Try different method names for Redis client compatibility
-      if (typeof redis.setEx === 'function') {
-        await redis.setEx(key, ttl, value)
-      } else if (typeof redis.setex === 'function') {
-        await redis.setex(key, ttl, value)
-      } else if (typeof redis.setEX === 'function') {
-        await redis.setEX(key, ttl, value)
-      } else if (typeof redis.set === 'function') {
-        // Fallback to set with EX option
-        await redis.set(key, value, 'EX', ttl)
-      } else {
-        throw new Error('Redis client does not support setting expiration')
-      }
-    } else {
-      // Unknown client, try basic set with EX
-      await redis.set(key, value, 'EX', ttl)
-    }
-  } catch (error) {
-    // If all methods fail, try the basic set command
-    await redis.set(key, value)
-    console.warn(`Failed to set TTL for key ${key}, falling back to basic set`)
   }
 }
 
 /**
- * High-performance Redis-based authentication state storage for Baileys.
- * Optimized for maximum speed and minimal latency.
+ * Binary values (Buffer and any other Uint8Array) are stored as {type:'Buffer', data:[...bytes]}.
+ * The array form is what earlier versions wrote and read, so data stays readable after a rollback.
  */
+const fastSerialize = (data: any): string => {
+  return JSON.stringify(data, function (this: any, key: string, value: any) {
+    // JSON.stringify applies Buffer#toJSON before the replacer; this[key] is the original value.
+    const original = this[key]
+    if (original instanceof Uint8Array) {
+      return { type: 'Buffer', data: Array.from(original) }
+    }
+    return value
+  })
+}
 
+const fastDeserialize = (data: string): any => {
+  return JSON.parse(data, (_key, value) => {
+    if (value !== null && typeof value === 'object' && value.type === 'Buffer') {
+      if (Array.isArray(value.data)) return Buffer.from(value.data)
+      if (typeof value.data === 'string') return Buffer.from(value.data, 'base64')
+    }
+    return value
+  })
+}
+
+const LEGACY_IDENTITY_KEY_LENGTH = 33
+
+/**
+ * Before 3.1.0, Uint8Array identity keys were stored as {"0":5,"1":...,"32":n}.
+ * Decode exactly that shape (keys 0..32, integer bytes) and leave anything else untouched.
+ */
+const decodeLegacyIdentityKey = (value: any): any => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value) || value instanceof Uint8Array) {
+    return value
+  }
+  if (Object.keys(value).length !== LEGACY_IDENTITY_KEY_LENGTH) return value
+  const bytes: number[] = []
+  for (let i = 0; i < LEGACY_IDENTITY_KEY_LENGTH; i++) {
+    const byte = value[String(i)]
+    if (!Number.isInteger(byte) || byte < 0 || byte > 255) return value
+    bytes.push(byte)
+  }
+  return Buffer.from(bytes)
+}
+
+// Baileys key pairs are raw Curve25519 keys (32 bytes); registration ids are unsigned.
+const CURVE_KEY_LENGTH = 32
+const isCurveKey = (value: any): boolean => value instanceof Uint8Array && value.length === CURVE_KEY_LENGTH
+const isKeyPair = (pair: any): boolean => isCurveKey(pair?.public) && isCurveKey(pair?.private)
+
+const isValidCreds = (creds: any): boolean =>
+  creds !== null &&
+  typeof creds === 'object' &&
+  isKeyPair(creds.noiseKey) &&
+  isKeyPair(creds.signedIdentityKey) &&
+  Number.isInteger(creds.registrationId) &&
+  creds.registrationId >= 0 &&
+  creds.registrationId <= 0xffffffff
+
+/**
+ * Run a batch and return its replies, throwing unless every command succeeded.
+ * Handles ioredis ([err, reply] tuples) and node-redis (plain replies) result shapes.
+ */
+const execChecked = async (batch: any, expected: number, operation: string): Promise<any[]> => {
+  let results: any
+  try {
+    results = await batch.exec()
+  } catch (error) {
+    throw new AuthStoreUnavailableError(`Redis auth ${operation} failed`, error)
+  }
+  if (!Array.isArray(results) || results.length !== expected) {
+    throw new AuthStoreUnavailableError(`Redis auth ${operation} returned no result`)
+  }
+  return results.map((entry: any) => {
+    if (Array.isArray(entry)) {
+      if (entry[0]) throw new AuthStoreUnavailableError(`Redis auth ${operation} command failed`, entry[0])
+      return entry[1]
+    }
+    if (entry instanceof Error) throw new AuthStoreUnavailableError(`Redis auth ${operation} command failed`, entry)
+    return entry
+  })
+}
+
+/**
+ * Wrap a cached Signal key store (for example Baileys' makeCacheableSignalKeyStore) so a failed
+ * write can never be served from its cache. Baileys fills that cache before the underlying write
+ * resolves; on failure this flushes it before any queued read runs. get/set/clear are serialized,
+ * which matches the single mutex the Baileys cache already holds for both.
+ */
+export const withCacheRollback = <T extends { get: (...args: any[]) => any; set: (data: any) => any; clear?: () => any }>(
+  keys: T
+): T => {
+  let tail: Promise<unknown> = Promise.resolve()
+  const serial = <R>(work: () => Promise<R>): Promise<R> => {
+    const run = tail.then(work, work)
+    tail = run.catch(() => undefined)
+    return run
+  }
+
+  return {
+    ...keys,
+    get: (...args: any[]) => serial(async () => keys.get(...args)),
+    set: (data: any) =>
+      serial(async () => {
+        try {
+          return await keys.set(data)
+        } catch (error) {
+          await keys.clear?.()
+          throw error
+        }
+      }),
+    clear: () => serial(async () => keys.clear?.())
+  }
+}
+
+/**
+ * Redis-backed Baileys authentication state.
+ *
+ * Every Signal key is stored under exactly the id Baileys passes in; Baileys owns PN/LID
+ * mapping and session migration. Reads and writes fail closed with AuthStoreUnavailableError.
+ */
 export const useRedisAuthState = async (
   options: RedisAuthStateOptions
 ): Promise<{ state: AuthenticationState; saveCreds: () => Promise<void> }> => {
@@ -384,21 +440,13 @@ export const useRedisAuthState = async (
     keyPrefix = 'baileys:session:',
     sessionId = 'default',
     ttl,
-    enableBatching = true,
     batchSize = 100,
     poolSize = 10,
-    memoryEfficient = true,
     enableCache = true,
     cacheTTL = 30000,
-    enableLidSupport = true,
-    enableLazyDualStorage = true,
-    enableOpportunisticDualStorage = true,
-    enableLog = false,
-    lidMappingTTL = 604800,
-    lidCacheSize = 10000
+    enableLog = false
   } = options
 
-  // Get session-specific cache for better isolation
   const sessionCache = getSessionCache(sessionId)
 
   const log = (...args: any[]): void => {
@@ -407,403 +455,130 @@ export const useRedisAuthState = async (
     }
   }
 
-  if (enableLidSupport) {
-    configureLidHandler(sessionId, {
-      cacheSize: lidCacheSize,
-      mappingTTL: lidMappingTTL
-    })
-  }
-
-  log('Initialized Redis auth state', {
-    sessionId,
-    enableLidSupport,
-    enableLazyDualStorage,
-    enableOpportunisticDualStorage,
-    lidMappingTTL,
-    lidCacheSize
-  })
-
-  // Initialize connection pool or use existing Redis client
   let redis: any
-  let pool: RedisConnectionPool | null = null
-  
   if (redisOptions && (typeof redisOptions.connect === 'function' || redisOptions.constructor?.name === 'Redis' || redisOptions.constructor?.name === 'Cluster')) {
-    // Existing Redis client passed
     redis = redisOptions
   } else {
-    // Create new client using session-specific connection pool
-    pool = await getSessionPool(sessionId, redisOptions, poolSize)
+    const pool = await getSessionPool(sessionId, redisOptions, poolSize)
     redis = await pool.getConnection()
   }
 
+  const clientType = detectRedisClient(redis).type
   const sessionKey = `${keyPrefix}${sessionId}`
-
-  const stripDeviceSuffix = (jid: string): string => jid.replace(/([:.]\d+)$/, '')
-
-  const parseIdentifierParts = (value: string): { base: string | null; domain: string | null; device: string | null } => {
-    if (!value) {
-      return { base: null, domain: null, device: null }
-    }
-
-    let localPart = value
-    let domain: string | null = null
-    let device: string | null = null
-
-    const atIndex = value.indexOf('@')
-    if (atIndex !== -1) {
-      localPart = value.slice(0, atIndex)
-      const domainPart = value.slice(atIndex + 1)
-      const domainDeviceMatch = domainPart.match(/^(.*?)([:.])(\d+)$/)
-      if (domainDeviceMatch) {
-        domain = domainDeviceMatch[1] || null
-        device = domainDeviceMatch[3]
-      } else {
-        domain = domainPart || null
-      }
-    }
-
-    const localDeviceMatch = localPart.match(/^(.*?)([:.])(\d+)$/)
-    if (localDeviceMatch) {
-      localPart = localDeviceMatch[1]
-      if (!device) {
-        device = localDeviceMatch[3]
-      }
-    }
-
-    const trimmedLocal = localPart?.trim() || ''
-
-    if (!trimmedLocal) {
-      return { base: null, domain, device }
-    }
-
-    return {
-      base: trimmedLocal,
-      domain: domain?.trim() || null,
-      device: device || null
-    }
-  }
-
-  const resolveLookupCandidates = (value: string): Array<{ format: 'lid' | 'phone'; identifier: string }> => {
-    const candidates: Array<{ format: 'lid' | 'phone'; identifier: string }> = []
-
-    const addCandidate = (format: 'lid' | 'phone', identifier: string): void => {
-      if (!identifier) {
-        return
-      }
-      if (!candidates.some(entry => entry.format === format && entry.identifier === identifier)) {
-        candidates.push({ format, identifier })
-      }
-    }
-
-    if (!value) {
-      return candidates
-    }
-
-    if (isLidFormat(value)) {
-      addCandidate('lid', value)
-    }
-
-    if (isPhoneFormat(value)) {
-      addCandidate('phone', value)
-    }
-
-    if (!value.includes('@') && /^\d+$/.test(value)) {
-      addCandidate('lid', `${value}@lid`)
-      addCandidate('phone', `${value}@s.whatsapp.net`)
-    }
-
-    return candidates
-  }
-
-  const expandKeyVariants = (value: string): Set<string> => {
-    const variants = new Set<string>()
-    const queued = new Set<string>()
-    const queue: string[] = []
-
-    const enqueue = (candidate: string | null | undefined): void => {
-      if (!candidate) return
-      const normalized = candidate.trim()
-      if (!normalized || queued.has(normalized)) return
-      queued.add(normalized)
-      queue.push(normalized)
-    }
-
-    enqueue(value)
-
-    while (queue.length > 0) {
-      const current = queue.pop()!
-      if (variants.has(current)) {
-        continue
-      }
-      variants.add(current)
-
-      const { base, domain, device } = parseIdentifierParts(current)
-      if (!base) {
-        continue
-      }
-
-      enqueue(base)
-
-      const deviceOptions = new Set<string>()
-      if (device) {
-        deviceOptions.add(device)
-      }
-      deviceOptions.add('0')
-
-      const domainOptions = new Set<string>()
-      if (domain) {
-        domainOptions.add(domain)
-        if (domain === 'lid') {
-          domainOptions.add('s.whatsapp.net')
-        } else if (domain === 's.whatsapp.net' || domain === 'c.us' || domain === 'g.us') {
-          domainOptions.add('lid')
-        }
-      } else if (/^\d+$/.test(base)) {
-        domainOptions.add('s.whatsapp.net')
-        domainOptions.add('lid')
-      }
-
-      for (const dev of deviceOptions) {
-        enqueue(`${base}:${dev}`)
-        enqueue(`${base}.${dev}`)
-      }
-
-      for (const dom of domainOptions) {
-        enqueue(`${base}@${dom}`)
-        for (const dev of deviceOptions) {
-          enqueue(`${base}:${dev}@${dom}`)
-          enqueue(`${base}.${dev}@${dom}`)
-        }
-      }
-    }
-
-    return variants
-  }
-
-  const queueVariantOperations = (
-    target: { [key: string]: any },
-    category: string,
-    idValue: string,
-    payload: any
-  ): void => {
-    // Only expand variants for session category in v2; other categories must be stored exactly as written
-    const shouldExpand = enableLidSupport && category === 'session'
-    const variants = shouldExpand ? expandKeyVariants(idValue) : new Set<string>([idValue])
-    for (const variant of variants) {
-      const opKey = `${category}-${variant}`
-      if (!(opKey in target)) {
-        target[opKey] = payload
-      }
-    }
-  }
-
-  // Helper function to generate Redis keys
   const getRedisKey = (key: string): string => `${sessionKey}:${key}`
+  const newBatch = (): any => (redis.pipeline ? redis.pipeline() : redis.multi())
 
-  // Fast cache operations with session isolation
-  const getCachedData = (key: string): any | null => {
-    if (!enableCache) return null
-    
+  const getCachedData = (key: string): any => {
+    if (!enableCache) return undefined
     const cached = sessionCache.get(key)
-    if (!cached) return null
-    
+    if (!cached) return undefined
     if (Date.now() - cached.timestamp > cacheTTL) {
       sessionCache.delete(key)
-      return null
+      return undefined
     }
-    
     return cached.data
   }
 
   const setCachedData = (key: string, data: any): void => {
     if (!enableCache) return
-    
-    sessionCache.set(key, {
-      data,
-      timestamp: Date.now()
-    })
+    sessionCache.set(key, { data, timestamp: Date.now() })
   }
 
-  // High-performance read operation
-  const readData = async (key: string): Promise<any | null> => {
-    const cacheKey = getRedisKey(key)
-    
-    // Try cache first
-    const cached = getCachedData(cacheKey)
-    if (cached !== null) return cached
-
+  const parse = (raw: string, key: string): any => {
     try {
-      const data = await redis.get(cacheKey)
-      if (!data) return null
-      
-      const parsed = fastDeserialize(data)
-      setCachedData(cacheKey, parsed)
-      return parsed
+      return fastDeserialize(raw)
     } catch (error) {
-      console.error(`Error reading data for key ${key}:`, error)
-      return null
+      throw new AuthStoreUnavailableError(`Redis auth value for ${key.split(':').pop()?.split('-')[0]} is unparsable`, error)
     }
   }
 
-  // High-performance write operation
-  const writeData = async (data: any, key: string): Promise<void> => {
-    const redisKey = getRedisKey(key)
-    const serializedData = fastSerialize(data)
-    
-    try {
-      if (ttl && ttl > 0) {
-        await setWithExpiration(redis, redisKey, serializedData, ttl)
-      } else {
-        await redis.set(redisKey, serializedData)
-      }
-      
-      // Update cache
-      setCachedData(redisKey, data)
-    } catch (error) {
-      console.error(`Error writing data for key ${key}:`, error)
-      throw error
-    }
-  }
-
-  // High-performance bulk read operation
+  // Exact-key bulk read. Missing keys are absent from the result; any failure throws.
   const bulkRead = async (keys: string[]): Promise<{ [key: string]: any }> => {
     const result: { [key: string]: any } = {}
-    const missingKeys: string[] = []
-    const redisKeys: string[] = []
-
-    // Check cache first
+    const missing: string[] = []
     for (const key of keys) {
-      const redisKey = getRedisKey(key)
-      const cached = getCachedData(redisKey)
-      if (cached !== null) {
-        result[key] = cached
-      } else {
-        missingKeys.push(key)
-        redisKeys.push(redisKey)
-      }
+      const cached = getCachedData(getRedisKey(key))
+      if (cached !== undefined) result[key] = cached
+      else missing.push(key)
     }
 
-    // Batch fetch missing keys
-    if (missingKeys.length > 0) {
-      try {
-        if (enableBatching) {
-          const missingKeyChunks = chunkArray(missingKeys, batchSize)
-          const redisKeyChunks = chunkArray(redisKeys, batchSize)
-
-          for (let chunkIndex = 0; chunkIndex < missingKeyChunks.length; chunkIndex++) {
-            const currentMissingKeys = missingKeyChunks[chunkIndex]
-            const currentRedisKeys = redisKeyChunks[chunkIndex]
-            const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
-            currentRedisKeys.forEach(key => pipeline.get(key))
-
-            const pipelineResults = await pipeline.exec()
-            for (let i = 0; i < currentMissingKeys.length; i++) {
-              const data = getPipelineResultValue(pipelineResults?.[i])
-              if (data) {
-                const parsed = fastDeserialize(data)
-                result[currentMissingKeys[i]] = parsed
-                setCachedData(currentRedisKeys[i], parsed)
-              }
-            }
-          }
-        } else {
-          for (let i = 0; i < missingKeys.length; i++) {
-            const data = await redis.get(redisKeys[i])
-            if (data) {
-              const parsed = fastDeserialize(data)
-              result[missingKeys[i]] = parsed
-              setCachedData(redisKeys[i], parsed)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error in bulk read:', error)
-      }
+    for (const chunk of chunkArray(missing, batchSize)) {
+      const batch = newBatch()
+      chunk.forEach(key => batch.get(getRedisKey(key)))
+      const replies = await execChecked(batch, chunk.length, 'read')
+      chunk.forEach((key, i) => {
+        const raw = replies[i]
+        if (raw === null) return
+        if (raw === undefined) throw new AuthStoreUnavailableError(`Redis returned no reply for ${key}`)
+        const value = parse(raw, key)
+        result[key] = value
+        setCachedData(getRedisKey(key), value)
+      })
     }
 
     return result
   }
 
-  // High-performance bulk write operation
+  // One MULTI per call; the cache changes only after every command succeeded.
   const bulkWrite = async (data: { [key: string]: any }): Promise<void> => {
-    const clientInfo = detectRedisClient(redis)
     const entries = Object.entries(data)
+    if (entries.length === 0) return
 
-    if (enableBatching) {
-      const entryChunks = chunkArray(entries, batchSize)
-
-      for (const entryChunk of entryChunks) {
-        const pipeline = redis.multi ? redis.multi() : redis.pipeline ? redis.pipeline() : redis.multi()
-
-        for (const [key, value] of entryChunk) {
-          const redisKey = getRedisKey(key)
-          if (value !== null && value !== undefined) {
-            const serializedData = fastSerialize(value)
-            if (ttl && ttl > 0) {
-              // Use client-specific method for setting expiration in pipeline
-              if (clientInfo.type === 'ioredis') {
-                pipeline.setex(redisKey, ttl, serializedData)
-              } else if (clientInfo.type === 'redis') {
-                if (typeof redis.setEx === 'function') {
-                  pipeline.setEx(redisKey, ttl, serializedData)
-                } else if (typeof redis.setex === 'function') {
-                  pipeline.setex(redisKey, ttl, serializedData)
-                } else {
-                  // Fallback to set with EX option
-                  pipeline.set(redisKey, serializedData, 'EX', ttl)
-                }
-              } else {
-                pipeline.set(redisKey, serializedData, 'EX', ttl)
-              }
-            } else {
-              pipeline.set(redisKey, serializedData)
-            }
-            setCachedData(redisKey, value)
-          } else {
-            pipeline.del(redisKey)
-            sessionCache.delete(redisKey)
-          }
-        }
-
-        await pipeline.exec()
+    const batch = redis.multi()
+    const serialized: Array<[string, any, string | null]> = entries.map(([key, value]) => {
+      const redisKey = getRedisKey(key)
+      if (value === null || value === undefined) {
+        batch.del(redisKey)
+        return [redisKey, value, null]
       }
-    } else {
-      for (const [key, value] of entries) {
-        const redisKey = getRedisKey(key)
-        if (value !== null && value !== undefined) {
-          const serializedData = fastSerialize(value)
-          if (ttl && ttl > 0) {
-            await setWithExpiration(redis, redisKey, serializedData, ttl)
-          } else {
-            await redis.set(redisKey, serializedData)
-          }
-          setCachedData(redisKey, value)
-        } else {
-          await redis.del(redisKey)
-          sessionCache.delete(redisKey)
-        }
+      const payload = fastSerialize(value)
+      if (ttl && ttl > 0) {
+        if (clientType === 'ioredis') batch.set(redisKey, payload, 'EX', ttl)
+        else batch.set(redisKey, payload, { EX: ttl })
+      } else {
+        batch.set(redisKey, payload)
       }
+      return [redisKey, value, payload]
+    })
+
+    await execChecked(batch, entries.length, 'write')
+
+    for (const [redisKey, value, payload] of serialized) {
+      if (payload === null) sessionCache.delete(redisKey)
+      else setCachedData(redisKey, value)
+    }
+    log('Committed auth keys', { count: entries.length })
+  }
+
+  const credsKey = getRedisKey('creds')
+  let rawCreds: any
+  try {
+    rawCreds = await redis.get(credsKey)
+  } catch (error) {
+    throw new AuthStoreUnavailableError('Redis auth creds read failed', error)
+  }
+
+  let creds: any
+  if (rawCreds === null) {
+    console.warn('[redis-auth] creds missing, new pairing', { sessionId })
+    creds = initAuthCreds()
+  } else {
+    creds = parse(rawCreds, 'creds')
+    if (!isValidCreds(creds)) {
+      throw new AuthStoreUnavailableError('Redis auth creds are not valid credentials')
     }
   }
 
-  // Load or initialize credentials
-  let creds: any
-  try {
-    creds = (await readData('creds')) || {}
-    
-    // Try to use Baileys initAuthCreds if available
-    if (Object.keys(creds).length === 0) {
+  const toStoredValue = (type: string, value: any): any => {
+    if (type === 'identity-key') return decodeLegacyIdentityKey(value)
+    if (type === 'app-state-sync-key') {
       try {
-        const { initAuthCreds } = await import('baileys')
-        creds = initAuthCreds()
-      } catch (error: any) {
-        // Baileys not available, use empty object
-        creds = {}
+        return proto.Message.AppStateSyncKeyData.fromObject(value)
+      } catch {
+        return value
       }
     }
-  } catch (error: any) {
-    console.error('Error loading credentials:', error)
-    creds = {}
+    return value
   }
 
   return {
@@ -811,284 +586,31 @@ export const useRedisAuthState = async (
       creds,
       keys: {
         get: async (type: string, ids: string[]) => {
-          // Pre-load proto for app-state-sync-key deserialization
-          let appStateSyncProto: any = null
-          if (type === 'app-state-sync-key') {
-            try {
-              const baileys = await import('baileys')
-              appStateSyncProto = baileys.proto
-            } catch {
-              // Baileys proto not available, will return raw values
-            }
-          }
-
-          const toAppStateSyncValue = (raw: any) => {
-            if (type === 'app-state-sync-key' && raw && appStateSyncProto) {
-              try {
-                return appStateSyncProto.Message.AppStateSyncKeyData.fromObject(raw)
-              } catch (error: any) {
-                return raw
-              }
-            }
-            return raw
-          }
-
-          if (!(enableLidSupport && type === 'session')) {
-            const keyedIds = ids.map(id => `${type}-${id}`)
-            const data = await bulkRead(keyedIds)
-            const result: { [id: string]: any } = {}
-
-            for (const id of ids) {
-              const key = `${type}-${id}`
-              const value = data[key]
-              result[id] = value === undefined || value === null ? null : toAppStateSyncValue(value)
-            }
-
-            return result
-          }
-
-          const uniqueIds = Array.from(new Set(ids))
-          const expansionMap = new Map<string, Set<string>>()
-
-          await Promise.all(
-            uniqueIds.map(async id => {
-              const expanded = new Set<string>()
-              for (const variant of expandKeyVariants(id)) {
-                expanded.add(variant)
-              }
-
-              const strippedId = stripDeviceSuffix(id)
-              const lookupCandidates = resolveLookupCandidates(strippedId)
-
-              for (const candidate of lookupCandidates) {
-                const candidateId = stripDeviceSuffix(candidate.identifier)
-                for (const variant of expandKeyVariants(candidateId)) {
-                  expanded.add(variant)
-                }
-
-                if (candidate.format === 'lid') {
-                  const phone = await getLidMapping(redis, sessionId, candidateId, keyPrefix)
-                  if (phone) {
-                    for (const variant of expandKeyVariants(phone)) {
-                      expanded.add(variant)
-                    }
-                    log('Session lookup mapping (lid→phone)', {
-                      requested: id,
-                      strippedId: candidateId,
-                      phone,
-                      variants: Array.from(expanded)
-                    })
-                  }
-                } else if (candidate.format === 'phone') {
-                  const lid = await getReverseLidMapping(redis, sessionId, candidateId, keyPrefix)
-                  if (lid) {
-                    for (const variant of expandKeyVariants(lid)) {
-                      expanded.add(variant)
-                    }
-                    log('Session lookup mapping (phone→lid)', {
-                      requested: id,
-                      strippedId: candidateId,
-                      lid,
-                      variants: Array.from(expanded)
-                    })
-                  }
-                }
-              }
-
-              expansionMap.set(id, expanded)
-              log('Session lookup variants prepared', {
-                requested: id,
-                variants: Array.from(expanded)
-              })
-            })
-          )
-
-          const allLookupIds = new Set<string>()
-          for (const expanded of expansionMap.values()) {
-            expanded.forEach(value => allLookupIds.add(value))
-          }
-
-          const data = await bulkRead(Array.from(allLookupIds).map(value => `${type}-${value}`))
-
+          const data = await bulkRead(ids.map(id => `${type}-${id}`))
           const result: { [id: string]: any } = {}
-          const lazyWriteOperations: { [key: string]: any } = {}
-
           for (const id of ids) {
-            const possibleKeys = expansionMap.get(id) ?? new Set<string>([id])
-            const directKey = `${type}-${id}`
-            let value = data[directKey]
-            let alternateSource: string | null = null
-
-            if (value === undefined || value === null) {
-              for (const candidate of possibleKeys) {
-                if (candidate === id) continue
-                const candidateKey = `${type}-${candidate}`
-                const candidateValue = data[candidateKey]
-                if (candidateValue !== undefined && candidateValue !== null) {
-                  value = candidateValue
-                  alternateSource = candidate
-                  break
-                }
-              }
-            }
-
-            if (value === undefined || value === null) {
-              result[id] = null
-              log('Session lookup miss', {
-                requested: id,
-                variants: Array.from(possibleKeys)
-              })
-              continue
-            }
-
-            result[id] = toAppStateSyncValue(value)
-
-            if (enableLazyDualStorage && alternateSource && alternateSource !== id) {
-              queueVariantOperations(lazyWriteOperations, type, id, value)
-              log('Session resolved via alternate format', {
-                requested: id,
-                alternateSource,
-                variants: Array.from(possibleKeys)
-              })
-
-              const cleanedTarget = stripDeviceSuffix(id)
-              const cleanedSource = stripDeviceSuffix(alternateSource)
-              const targetCandidates = resolveLookupCandidates(cleanedTarget)
-              const sourceCandidates = resolveLookupCandidates(cleanedSource)
-
-              const targetLid = targetCandidates.find(entry => entry.format === 'lid')?.identifier
-              const targetPhone = targetCandidates.find(entry => entry.format === 'phone')?.identifier
-              const sourceLid = sourceCandidates.find(entry => entry.format === 'lid')?.identifier
-              const sourcePhone = sourceCandidates.find(entry => entry.format === 'phone')?.identifier
-
-              if (targetLid && sourcePhone) {
-                const safeLid = stripDeviceSuffix(targetLid)
-                const safePhone = stripDeviceSuffix(sourcePhone)
-                storeLidMapping(redis, sessionId, safeLid, safePhone, keyPrefix, lidMappingTTL).catch(error => {
-                  console.error('[Redis Auth] Failed to refresh LID mapping during lazy copy:', error)
-                })
-              } else if (targetPhone && sourceLid) {
-                const safeLid = stripDeviceSuffix(sourceLid)
-                const safePhone = stripDeviceSuffix(targetPhone)
-                storeLidMapping(redis, sessionId, safeLid, safePhone, keyPrefix, lidMappingTTL).catch(error => {
-                  console.error('[Redis Auth] Failed to refresh LID mapping during lazy copy:', error)
-                })
-              }
-            }
+            const value = data[`${type}-${id}`]
+            result[id] = value === undefined || value === null ? null : toStoredValue(type, value)
           }
-
-          if (enableLazyDualStorage && Object.keys(lazyWriteOperations).length > 0) {
-            log('Queued lazy dual storage operations', {
-              count: Object.keys(lazyWriteOperations).length
-            })
-            bulkWrite(lazyWriteOperations).catch(error => {
-              console.error('[Redis Auth] Lazy dual storage failed:', error)
-            })
-          }
-
           return result
         },
-        
+
         set: async (data: any) => {
-          const writeOperations: { [key: string]: any } = {}
-          const opportunisticWrites: { [key: string]: any } = {}
-          const mappingLookups: Promise<void>[] = []
-          
+          const writes: { [key: string]: any } = {}
           for (const category in data) {
             for (const id in data[category]) {
-              const value = data[category][id]
-              queueVariantOperations(writeOperations, category, id, value)
-
-              if (!enableLidSupport || category !== 'session' || value === undefined || value === null) {
-                continue
-              }
-
-              const cleanedId = stripDeviceSuffix(id)
-              const lookupCandidates = resolveLookupCandidates(cleanedId)
-              const handledCandidates = new Set<string>()
-
-              for (const candidate of lookupCandidates) {
-                const candidateId = stripDeviceSuffix(candidate.identifier)
-                if (!candidateId) {
-                  continue
-                }
-                const dedupeKey = `${candidate.format}:${candidateId}`
-                if (handledCandidates.has(dedupeKey)) {
-                  continue
-                }
-                handledCandidates.add(dedupeKey)
-
-                if (candidate.format === 'lid') {
-                  mappingLookups.push(
-                    (async () => {
-                      const phone = await getLidMapping(redis, sessionId, candidateId, keyPrefix)
-                      if (phone) {
-                        await storeLidMapping(redis, sessionId, candidateId, phone, keyPrefix, lidMappingTTL)
-                        log('Opportunistic dual storage mapping', {
-                          base: candidateId,
-                          mapped: phone,
-                          category
-                        })
-                      }
-                      if (!phone || !enableOpportunisticDualStorage) {
-                        return
-                      }
-                      queueVariantOperations(opportunisticWrites, category, phone, value)
-                      log('Queued opportunistic dual storage write', {
-                        base: candidateId,
-                        alternate: phone,
-                        category
-                      })
-                    })()
-                  )
-                } else if (candidate.format === 'phone') {
-                  mappingLookups.push(
-                    (async () => {
-                      const lid = await getReverseLidMapping(redis, sessionId, candidateId, keyPrefix)
-                      if (lid) {
-                        await storeLidMapping(redis, sessionId, lid, candidateId, keyPrefix, lidMappingTTL)
-                        log('Opportunistic dual storage mapping', {
-                          base: candidateId,
-                          mapped: lid,
-                          category
-                        })
-                      }
-                      if (!lid || !enableOpportunisticDualStorage) {
-                        return
-                      }
-                      queueVariantOperations(opportunisticWrites, category, lid, value)
-                      log('Queued opportunistic dual storage write', {
-                        base: candidateId,
-                        alternate: lid,
-                        category
-                      })
-                    })()
-                  )
-                }
-              }
+              writes[`${category}-${id}`] = data[category][id]
             }
           }
-
-          if (mappingLookups.length > 0) {
-            log('Awaiting mapping lookups', { count: mappingLookups.length })
-            await Promise.allSettled(mappingLookups)
-          }
-
-          const finalOperations = enableOpportunisticDualStorage
-            ? { ...writeOperations, ...opportunisticWrites }
-            : writeOperations
-
-          log('Executing bulk write', {
-            totalOperations: Object.keys(finalOperations).length,
-            opportunisticCount: Object.keys(opportunisticWrites).length
-          })
-          await bulkWrite(finalOperations)
+          await bulkWrite(writes)
         }
       }
-    },
-    
+    } as AuthenticationState,
+
     saveCreds: async () => {
-      return writeData(creds, 'creds')
+      const batch = redis.multi()
+      batch.set(credsKey, fastSerialize(creds))
+      await execChecked(batch, 1, 'creds write')
     }
   }
 }

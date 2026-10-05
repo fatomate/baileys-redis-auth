@@ -24,15 +24,12 @@ export interface RedisAuthStateOptions {
   ttl?: number
   
   /**
-   * Compression level for stored data
-   * 0 = no compression, 1-9 = gzip levels, 'lz4' = LZ4 compression
-   * @default 'lz4'
+   * @deprecated Not implemented; accepted and ignored. Values are stored as JSON.
    */
   compression?: number | 'lz4' | false
   
   /**
-   * Enable batch operations for better performance
-   * @default true
+   * @deprecated Ignored since 3.1.0: reads are always pipelined and each keys.set is one MULTI.
    */
   enableBatching?: boolean
   
@@ -49,13 +46,13 @@ export interface RedisAuthStateOptions {
   poolSize?: number
   
   /**
-   * Enable memory-efficient mode
-   * @default true
+   * @deprecated Ignored.
    */
   memoryEfficient?: boolean
   
   /**
-   * Cache frequently accessed data in memory
+   * Cache values in process memory after a confirmed read or write.
+   * Disable it when the keys are already wrapped in Baileys' makeCacheableSignalKeyStore.
    * @default true
    */
   enableCache?: boolean
@@ -67,23 +64,18 @@ export interface RedisAuthStateOptions {
   cacheTTL?: number
   
   /**
-   * Enable support for WhatsApp @lid format
-   * Automatically handles mapping between @lid and phone number formats
-   * @default true
+   * @deprecated Ignored since 3.1.0. Keys are stored under the exact ids Baileys uses;
+   * Baileys itself owns PN/LID mapping and session migration.
    */
   enableLidSupport?: boolean
 
   /**
-   * Enables lazy dual storage when sessions are resolved through alternate formats
-   * Background writes ensure future lookups hit the primary key directly
-   * @default true
+   * @deprecated Ignored since 3.1.0 (it copied sessions between devices).
    */
   enableLazyDualStorage?: boolean
 
   /**
-   * Enables opportunistic dual storage for session writes when mappings exist
-   * Provides immediate parity between LID and phone based session keys
-   * @default true
+   * @deprecated Ignored since 3.1.0 (it copied sessions between devices).
    */
   enableOpportunisticDualStorage?: boolean
 
@@ -94,14 +86,12 @@ export interface RedisAuthStateOptions {
   enableLog?: boolean
   
   /**
-   * TTL for LID to phone number mappings in seconds
-   * @default 604800 (7 days)
+   * @deprecated Ignored since 3.1.0.
    */
   lidMappingTTL?: number
   
   /**
-   * Maximum number of LID mappings to cache in memory per session
-   * @default 10000
+   * @deprecated Ignored since 3.1.0.
    */
   lidCacheSize?: number
 }

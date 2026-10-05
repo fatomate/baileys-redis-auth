@@ -5,6 +5,23 @@
 
 A **Redis-based authentication state manager** for the [Baileys](https://github.com/WhiskeySockets/Baileys) WhatsApp library. This package provides a drop-in replacement for `useMultiFileAuthState` that stores session data in Redis, making it ideal for production deployments and multi-instance setups.
 
+## 3.1.0 Upgrade Notes (Session Corruption Fix)
+
+3.1.0 fixes Signal session corruption caused by earlier versions. **No data migration and no re-pairing are needed**: the creds key, its format and the key prefix are unchanged.
+
+- **Exact keys only.** Every Signal key is read and written under exactly the id Baileys passes in. Session "variants", lazy and opportunistic dual storage are gone: they copied one device's session onto other devices (notably device `0`). Baileys v7 owns PN/LID mapping and session migration itself. Old alias keys stay in Redis untouched and are never read.
+- **Binary values.** `Uint8Array` values (Baileys v7 identity keys) are now stored as `{type:'Buffer', data:[...]}`. Identity keys written by older versions as `{"0":5,...}` are decoded on read; nothing is rewritten.
+- **Fail closed.** A failed or unparsable read, a failed write command, or stored creds that are not valid credentials throw `AuthStoreUnavailableError` (`code: 'AUTH_STORE_UNAVAILABLE'`). Fresh creds are created only when the creds key does not exist. Each `keys.set` call is one checked `MULTI`; Redis does not roll back commands that already succeeded inside a failed `EXEC`, so callers retry the same mutation (Baileys' transaction layer does).
+- **Caching.** Wrap Baileys' cache with `withCacheRollback` and disable this store's own cache:
+
+  ```js
+  const { state, saveCreds } = await useRedisAuthState({ redis, sessionId, enableCache: false })
+  const keys = withCacheRollback(makeCacheableSignalKeyStore(state.keys, logger))
+  ```
+
+- **Rollback.** 3.0.0 can still read everything 3.1.0 writes, so reverting keeps everyone paired. It also brings back the corruption, and its alias reads can resurrect sessions 3.1.0 deleted. Prefer keeping 3.1.0 when rolling back unrelated changes.
+- **Ignored options.** `compression`, `enableBatching`, `memoryEfficient`, `enableLidSupport`, `enableLazyDualStorage`, `enableOpportunisticDualStorage`, `lidMappingTTL` and `lidCacheSize` are accepted and ignored.
+
 ## ✨ Features
 
 - **📦 Pure ESM** - Native ES Modules, compatible with Baileys v7 ESM
