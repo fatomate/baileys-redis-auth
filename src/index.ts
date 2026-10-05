@@ -1,4 +1,10 @@
-export { useRedisAuthState, cleanupSession, cleanupSessionWithOptions } from './redis-auth-state.js'
+export {
+  useRedisAuthState,
+  cleanupSession,
+  cleanupSessionWithOptions,
+  withCacheRollback,
+  AuthStoreUnavailableError
+} from './redis-auth-state.js'
 export type { RedisAuthStateOptions } from './types.js'
 export { BufferJSON, MemoryCache, CompressionUtils, serialize, deserialize } from './utils.js'
 export { 
