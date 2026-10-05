@@ -27,6 +27,7 @@ A **Redis-based authentication state manager** for the [Baileys](https://github.
 
   These are tracked as a Baileys patch in [WAB-821](https://linear.app/teamfames/issue/WAB-821).
 - **Ignored options.** `compression`, `enableBatching`, `memoryEfficient`, `enableLidSupport`, `enableLazyDualStorage`, `enableOpportunisticDualStorage`, `lidMappingTTL` and `lidCacheSize` are accepted and ignored.
+- **Redis Cluster is not supported.** Each `keys.set` is one `MULTI` across keys in different hash slots, which Cluster rejects with `CROSSSLOT`. `useRedisAuthState` throws at startup when given an ioredis `Cluster` client. Use a standalone or Sentinel client.
 
 ## ✨ Features
 

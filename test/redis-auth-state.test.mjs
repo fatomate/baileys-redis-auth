@@ -427,6 +427,13 @@ test('C1 app-state-sync-key still reads back as a protobuf with its key bytes', 
   assert.ok(Buffer.from(got.keyData).equals(keyData))
 })
 
+test('C3 a Redis Cluster client is rejected at startup before any command', async () => {
+  class Cluster extends Redis {}
+  const redis = new Cluster()
+  redis.isCluster = true
+  await assert.rejects(open(redis, newSession()), /does not support Redis Cluster/)
+  assert.deepEqual(redis.writes, [])
+})
 test('C2 a truly missing creds key still starts a new pairing', async () => {
   const redis = new Redis()
   const { state } = await open(redis, newSession())

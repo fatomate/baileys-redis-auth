@@ -463,6 +463,12 @@ export const useRedisAuthState = async (
     redis = await pool.getConnection()
   }
 
+  // Each keys.set is one MULTI across many keys, which Redis Cluster rejects (CROSSSLOT).
+  // Fail at startup instead of on the first multi-key write.
+  if (redis?.isCluster === true || redis?.constructor?.name === 'Cluster') {
+    throw new Error('@baileys/redis-auth-state does not support Redis Cluster clients; use a standalone or Sentinel client')
+  }
+
   const clientType = detectRedisClient(redis).type
   const sessionKey = `${keyPrefix}${sessionId}`
   const getRedisKey = (key: string): string => `${sessionKey}:${key}`
